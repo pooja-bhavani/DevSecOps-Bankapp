@@ -1,7 +1,7 @@
 name: DevSecOps Main Pipeline
 
 on:
-  push:
+  push: 
     branches: [ main, devsecops ]
     paths-ignore:
       - '**.md'
