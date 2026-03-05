@@ -21,16 +21,15 @@ jobs:
   # ============================================================
   ci:
     uses: ./.github/workflows/ci.yml
+    secrets: inherit
 
   # ============================================================
-  # STAGE 2: Build - Maven + Trivy + DockerHub Push
+  # STAGE 2: Build - Maven + Trivy + ECR Push
   # ============================================================
   build:
     needs: ci
     uses: ./.github/workflows/build.yml
-    with:
-      dockerhub-username: ${{ secrets.DOCKERHUB_USERNAME }}
-      dockerhub-password: ${{ secrets.DOCKERHUB_TOKEN }}
+    secrets: inherit
 
   # ============================================================
   # STAGE 3: CD - Deploy + DAST
@@ -38,3 +37,4 @@ jobs:
   cd:
     needs: build
     uses: ./.github/workflows/cd.yml
+    secrets: inherit
