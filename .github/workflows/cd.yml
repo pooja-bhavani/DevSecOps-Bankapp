@@ -4,10 +4,14 @@ on:
   workflow_call:
 
 permissions:
-  id-token: write
+  id-token: write  # Required for OIDC
   contents: read
 
 jobs:
+
+  # ============================================================
+  # GATE 8: DEPLOY
+  # ============================================================
 
   deploy:
     name: Deploy to EC2 via SSH
@@ -68,6 +72,10 @@ jobs:
 
             # Start container
             docker compose -f app-tier.yml up -d
+            
+  # ============================================================
+  # GATE 9: DAST - Dynamic Application Security Testing
+  # ============================================================         
 
   dast:
     name: DAST - OWASP ZAP Baseline Scan
