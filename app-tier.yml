@@ -1,6 +1,6 @@
 services:
   bankapp:
-    image: ${DOCKERHUB_USERNAME}/bankapp:${IMAGE_TAG:-latest}
+    image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
     container_name: bankapp
     ports:
       - "8080:8080"
