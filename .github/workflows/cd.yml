@@ -66,7 +66,7 @@ jobs:
             docker volume create ollama-data || true
 
             # Login to Docker Hub
-            echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
             # Pull latest image
             docker compose -f app-tier.yml pull
