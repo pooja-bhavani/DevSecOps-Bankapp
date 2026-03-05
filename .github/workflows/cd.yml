@@ -43,27 +43,22 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Login to ECR
-            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
-
             cd ~/bankapp
 
-            # Fetch secrets from Secrets Manager and create .env
-            aws secretsmanager get-secret-value --secret-id bankapp/prod-secrets --query SecretString --output text > secrets.json
+            # Create local .env file for Docker Compose
+            echo "MYSQL_HOST=mysql" > .env
+            echo "MYSQL_PORT=3306" >> .env
+            echo "MYSQL_DATABASE=bankappdb" >> .env
+            echo "MYSQL_USER=root" >> .env
+            echo "MYSQL_PASSWORD=Test@123" >> .env
+            echo "OLLAMA_URL=http://ollama:11434" >> .env
+            echo "DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}" >> .env
+            echo "DOCKERHUB_PASSWORD=${{ secrets.DOCKERHUB_TOKEN }}" >> .env
+            echo "IMAGE_TAG=latest" >> .env
 
-            # Extract variables and write to .env
-            echo "DB_HOST=$(jq -r .DB_HOST secrets.json)" > .env
-            echo "DB_PORT=$(jq -r .DB_PORT secrets.json)" >> .env
-            echo "DB_NAME=$(jq -r .DB_NAME secrets.json)" >> .env
-            echo "DB_USER=$(jq -r .DB_USER secrets.json)" >> .env
-            echo "DB_PASSWORD=$(jq -r .DB_PASSWORD secrets.json)" >> .env
-            echo "OLLAMA_URL=$(jq -r .OLLAMA_URL secrets.json)" >> .env
-            echo "ECR_REGISTRY=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com" >> .env
-            echo "ECR_REPOSITORY=${{ secrets.ECR_REPOSITORY }}" >> .env
-            echo "IMAGE_TAG=${{ github.sha }}" >> .env
 
-            # Clean up
-            rm secrets.json
+            # Login to Docker Hub
+            echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
             # Pull and Deploy using the app-tier.yml transferred via SCP
             docker compose -f app-tier.yml pull
