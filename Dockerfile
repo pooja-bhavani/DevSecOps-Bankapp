@@ -9,7 +9,7 @@ FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 # Pull latest security patches for OS libraries
-RUN apk update && apk upgrade --no-cache
+RUN apk update && apk upgrade --no-cache curl
 
 # Create a non-root user for security (Alpine uses addgroup/adduser instead of groupadd/useradd)
 RUN addgroup -S devsecops && adduser -S -G devsecops devsecops
