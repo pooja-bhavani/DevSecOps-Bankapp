@@ -49,7 +49,7 @@ services:
       - bankapp-net
 
   bankapp:
-    image: ${DOCKERHUB_USERNAME}/bankapp:latest
+    image: sagarbhavani/bankapp:latest
     container_name: bankapp
     ports:
       - "8080:8080"
