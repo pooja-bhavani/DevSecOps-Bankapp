@@ -45,7 +45,7 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Build Docker Image   (for scanning)
+      - name: Build Docker Image (for scanning)
         run: docker build --pull -t bankapp:scan-${{ github.sha }} .
 
       - name: Cache Trivy DB
@@ -61,7 +61,7 @@ jobs:
         with:
           image-ref: bankapp:scan-${{ github.sha }}
           format: 'table'
-          exit-code: '1'         # Enforce: fail pipeline on CRITICAL/HIGH findings
+          exit-code: '1'
           ignore-unfixed: true
           vuln-type: 'os,library'
           severity: 'CRITICAL,HIGH'
@@ -95,8 +95,12 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Tag and Push Image
+      - name: Tag Images
         run: |
           docker tag bankapp:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:${{ github.sha }}
+          docker tag bankapp:${{ github.sha }} ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
+
+      - name: Push Images
+        run: |
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:${{ github.sha }}
-          
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
