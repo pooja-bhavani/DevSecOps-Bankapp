@@ -4,7 +4,6 @@ on:
   workflow_call:
 
 permissions:
-  id-token: write  # Required for OIDC
   contents: read
 
 jobs:
