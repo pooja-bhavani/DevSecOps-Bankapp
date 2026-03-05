@@ -1,9 +1,4 @@
-version: "3.9"
-
 services:
-  # ==============================
-  # MySQL Database
-  # ==============================
   mysql:
     image: mysql:8.0
     container_name: bankapp-mysql
@@ -23,9 +18,6 @@ services:
     networks:
       - bankapp-net
 
-  # ==============================
-  # Ollama AI Service
-  # ==============================
   ollama:
     image: ollama/ollama
     container_name: bankapp-ollama
@@ -41,12 +33,11 @@ services:
     networks:
       - bankapp-net
 
-  # Pull Ollama model
   ollama-pull-model:
     image: ollama/ollama
     container_name: ollama-pull-model
     environment:
-      OLLAMA_HOST: ollama
+      OLLAMA_HOST: http://ollama:11434
     volumes:
       - ollama-data:/root/.ollama
     depends_on:
@@ -57,13 +48,8 @@ services:
     networks:
       - bankapp-net
 
-  # ==============================
-  # BankApp Service
-  # ==============================
   bankapp:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: ${DOCKERHUB_USERNAME}/bankapp:latest
     container_name: bankapp
     ports:
       - "8080:8080"
@@ -82,16 +68,10 @@ services:
     networks:
       - bankapp-net
 
-# ==============================
-# Volumes
-# ==============================
 volumes:
   mysql-data:
   ollama-data:
 
-# ==============================
-# Network
-# ==============================
 networks:
   bankapp-net:
     driver: bridge
