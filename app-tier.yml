@@ -1,16 +1,16 @@
 services:
   bankapp:
-    image: ${ECR_REGISTRY}/${ECR_REPOSITORY}:${IMAGE_TAG}
+    image: ${DOCKERHUB_USERNAME}/bankapp:${IMAGE_TAG:-latest}
     container_name: bankapp
     ports:
       - "8080:8080"
     environment:
-      MYSQL_HOST: ${DB_HOST}
+      MYSQL_HOST: ${DB_HOST:-mysql}
       MYSQL_PORT: ${DB_PORT:-3306}
-      MYSQL_DATABASE: ${DB_NAME}
-      MYSQL_USER: ${DB_USER}
-      MYSQL_PASSWORD: ${DB_PASSWORD}
-      OLLAMA_URL: ${OLLAMA_URL}
+      MYSQL_DATABASE: ${DB_NAME:-bankappdb}
+      MYSQL_USER: ${DB_USER:-root}
+      MYSQL_PASSWORD: ${DB_PASSWORD:-Test@123}
+      OLLAMA_URL: ${OLLAMA_URL:-http://ollama:11434}
     restart: always
     networks:
       - bankapp-net
