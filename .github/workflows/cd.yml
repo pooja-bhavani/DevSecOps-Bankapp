@@ -8,10 +8,6 @@ permissions:
   contents: read
 
 jobs:
-
-  # ==============================
-  # Deploy Application to EC2
-  # ==============================
   deploy:
     name: Deploy to EC2 via SSH
     runs-on: ubuntu-latest
@@ -19,7 +15,6 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # Create deployment folder
       - name: Create Deployment Directory
         uses: appleboy/ssh-action@master
         with:
@@ -28,7 +23,6 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: mkdir -p ~/bankapp
 
-      # Copy docker-compose file
       - name: Copy docker compose file
         uses: appleboy/scp-action@master
         with:
@@ -38,7 +32,6 @@ jobs:
           source: "docker-compose.yml"
           target: "~/bankapp"
 
-      # Deploy and run containers
       - name: Pull and Deploy Docker Compose
         uses: appleboy/ssh-action@master
         with:
@@ -48,20 +41,19 @@ jobs:
           script: |
             cd ~/bankapp
 
-            # Create volumes manually to avoid errors
-            docker volume create mysql-data
-            docker volume create ollama-data
-
             # Login to Docker Hub non-interactively
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
+            # Set environment variable
+            export DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
+
+            # Remove old containers and volumes
+            docker compose down -v --remove-orphans
+
             # Pull latest images and start services
             docker compose pull
-            docker compose up -d --build
+            docker compose up -d
 
-  # ==============================
-  # DAST - OWASP ZAP Scan
-  # ==============================
   dast:
     name: DAST - OWASP ZAP Baseline Scan
     runs-on: ubuntu-latest
