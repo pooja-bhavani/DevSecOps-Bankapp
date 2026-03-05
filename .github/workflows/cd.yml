@@ -50,11 +50,6 @@ jobs:
 
             cd ~/bankapp
 
-            # Login to AWS ECR
-            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} \
-            | docker login --username AWS --password-stdin \
-            ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
-
             # Create .env file from GitHub Secrets
             echo "DB_HOST=${{ secrets.DB_HOST }}" > .env
             echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
@@ -62,16 +57,16 @@ jobs:
             echo "DB_USER=${{ secrets.DB_USER }}" >> .env
             echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
             echo "OLLAMA_URL=${{ secrets.OLLAMA_URL }}" >> .env
+            echo "DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}" >> .env
+            echo "DOCKERHUB_PASSWORD=${{ secrets.DOCKERHUB_TOKEN }}" >> .env
+            echo "IMAGE_TAG=latest" >> .env
 
-            echo "ECR_REGISTRY=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com" >> .env
-            echo "ECR_REPOSITORY=${{ secrets.ECR_REPOSITORY }}" >> .env
-            echo "IMAGE_TAG=${{ github.sha }}" >> .env
+            # Login to Docker Hub
+            echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
             # Pull latest image
             docker compose -f app-tier.yml pull
-
-            # Start container
-            docker compose -f app-tier.yml up -d
+            docker compose -f app-tier.yml up -d --build
             
   # ============================================================
   # GATE 9: DAST - Dynamic Application Security Testing
