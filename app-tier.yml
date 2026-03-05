@@ -1,6 +1,16 @@
-services:
+services: 
+  ollama:
+    image: ollama/ollama
+    container_name: bankapp-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama-data:/root/.ollama
+    networks:
+      - bankapp-net
+      
   bankapp:
-    image: ${DOCKERHUB_USERNAME}/bankapp:${IMAGE_TAG:-latest}
+    build: .
     container_name: bankapp
     ports:
       - "8080:8080"
