@@ -40,19 +40,12 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd ~/bankapp
-
-            # Login to Docker Hub non-interactively
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-
-            # Set environment variable
-            export DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}
-
-            # Remove old containers and volumes
-            docker compose down -v --remove-orphans
-
-            # Pull latest images and start services
+            docker volume create mysql-data
+            docker volume create ollama-data
+            docker compose down --remove-orphans
             docker compose pull
-            docker compose up -d
+            docker compose up -d --build
 
   dast:
     name: DAST - OWASP ZAP Baseline Scan
