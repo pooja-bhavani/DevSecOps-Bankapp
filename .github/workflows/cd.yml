@@ -8,6 +8,10 @@ permissions:
   contents: read
 
 jobs:
+
+  # ============================================================
+  # GATE 8: DEPLOY
+  # ============================================================
   deploy:
     name: Deploy to EC2 via SSH
     runs-on: ubuntu-latest
@@ -23,7 +27,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: mkdir -p ~/bankapp
 
-      - name: Copy docker compose file
+      - name: Copy docker-compose.yml to EC2
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -32,7 +36,7 @@ jobs:
           source: "docker-compose.yml"
           target: "~/bankapp"
 
-      - name: Pull and Deploy Docker Compose
+      - name: Deploy via SSH
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
@@ -40,13 +44,29 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd ~/bankapp
-            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-            docker volume create mysql-data
-            docker volume create ollama-data
+
+            # Create .env file from GitHub Secrets
+            echo "MYSQL_HOST=${{ secrets.MYSQL_HOST }}" > .env
+            echo "MYSQL_PORT=${{ secrets.MYSQL_PORT }}" >> .env
+            echo "MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}" >> .env
+            echo "MYSQL_USER=${{ secrets.MYSQL_USER }}" >> .env
+            echo "MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}" >> .env
+            echo "OLLAMA_URL=${{ secrets.OLLAMA_URL }}" >> .env
+            echo "DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}" >> .env
+            echo "DOCKERHUB_PASSWORD=${{ secrets.DOCKERHUB_TOKEN }}" >> .env
+            echo "IMAGE_TAG=latest" >> .env
+
+            # Login to Docker Hub
+            echo "${{ secrets.DOCKERHUB_PASSWORD }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+            # Pull and deploy containers
             docker compose down --remove-orphans
             docker compose pull
             docker compose up -d --build
 
+  # ============================================================
+  # GATE 9: DAST - Dynamic Application Security Testing
+  # ============================================================
   dast:
     name: DAST - OWASP ZAP Baseline Scan
     runs-on: ubuntu-latest
