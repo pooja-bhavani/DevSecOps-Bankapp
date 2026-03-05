@@ -4,85 +4,69 @@ on:
   workflow_call:
 
 permissions:
-  id-token: write  # Required for OIDC
+  id-token: write
   contents: read
 
 jobs:
 
-  # ============================================================
-  # GATE 8: DEPLOY
-  # ============================================================
-
+  # ==============================
+  # Deploy Application to EC2
+  # ==============================
   deploy:
     name: Deploy to EC2 via SSH
     runs-on: ubuntu-latest
-
     steps:
-
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      # Create deployment folder
       - name: Create Deployment Directory
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            mkdir -p ~/bankapp
+          script: mkdir -p ~/bankapp
 
+      # Copy docker-compose file
       - name: Copy docker compose file
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "app-tier.yml"
+          source: "docker-compose.yml"
           target: "~/bankapp"
 
-      - name: Deploy Application
+      # Deploy and run containers
+      - name: Pull and Deploy Docker Compose
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-
             cd ~/bankapp
 
-            # Create .env file from GitHub Secrets
-            echo "DB_HOST=${{ secrets.DB_HOST }}" > .env
-            echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
-            echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
-            echo "DB_USER=${{ secrets.DB_USER }}" >> .env
-            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
-            echo "OLLAMA_URL=${{ secrets.OLLAMA_URL }}" >> .env
-            echo "DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}" >> .env
-            echo "DOCKERHUB_PASSWORD=${{ secrets.DOCKERHUB_TOKEN }}" >> .env
-            echo "IMAGE_TAG=latest" >> .env
+            # Create volumes manually to avoid errors
+            docker volume create mysql-data
+            docker volume create ollama-data
 
-            # Ensure volumes exist (fixes ollama-data error)
-            docker volume create mysql-data || true
-            docker volume create ollama-data || true
-
-            # Login to Docker Hub
+            # Login to Docker Hub non-interactively
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
-            # Pull latest image
-            docker compose -f app-tier.yml pull
-            docker compose -f app-tier.yml up -d --build
-            
-  # ============================================================
-  # GATE 9: DAST - Dynamic Application Security Testing
-  # ============================================================         
+            # Pull latest images and start services
+            docker compose pull
+            docker compose up -d --build
 
+  # ==============================
+  # DAST - OWASP ZAP Scan
+  # ==============================
   dast:
     name: DAST - OWASP ZAP Baseline Scan
     runs-on: ubuntu-latest
     needs: deploy
-
     steps:
-
       - name: Run OWASP ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.15.0
         continue-on-error: true
