@@ -5,6 +5,8 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
     ports:
       - "3306:3306"
     volumes:
@@ -17,6 +19,7 @@ services:
       start_period: 30s
     networks:
       - bankapp-net
+    restart: unless-stopped
 
   ollama:
     image: ollama/ollama
@@ -32,21 +35,7 @@ services:
       retries: 5
     networks:
       - bankapp-net
-
-  ollama-pull-model:
-    image: ollama/ollama
-    container_name: ollama-pull-model
-    environment:
-      - OLLAMA_HOST=ollama
-    volumes:
-      - ollama-data:/root/.ollama
-    depends_on:
-      ollama:
-        condition: service_healthy
-    entrypoint: /bin/sh
-    command: -c "ollama pull tinyllama"
-    networks:
-      - bankapp-net
+    restart: unless-stopped
 
   bankapp:
     image: poojabhavani08/bankapp:latest
@@ -61,12 +50,11 @@ services:
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
       OLLAMA_URL: ${OLLAMA_URL}
     depends_on:
-      mysql:
-        condition: service_healthy
-      ollama-pull-model:
-        condition: service_completed_successfully
+      - mysql
+      - ollama
     networks:
       - bankapp-net
+    restart: unless-stopped
 
 volumes:
   mysql-data:
