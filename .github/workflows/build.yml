@@ -114,17 +114,14 @@ jobs:
 
       - name: Pull & Deploy Ollama
         uses: appleboy/ssh-action@master
-       with:
-         host: ${{ secrets.OLLAMA_EC2_HOST }}
-         username: ${{ secrets.EC2_USER }}
-         key: ${{ secrets.EC2_SSH_KEY }}
-         script: |
-         cd ~/ollama
-
-      docker compose -f docker-compose-ollama.yml down --remove-orphans || true
-
-      docker rm -f bankapp-ollama || true
-      docker container prune -f || true
-
-      docker compose -f docker-compose-ollama.yml pull
-      docker compose -f docker-compose-ollama.yml up -d
+        with:
+          host: ${{ secrets.OLLAMA_EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/ollama
+            docker compose -f docker-compose-ollama.yml down --remove-orphans || true
+            docker rm -f bankapp-ollama || true
+            docker container prune -f || true
+            docker compose -f docker-compose-ollama.yml pull
+            docker compose -f docker-compose-ollama.yml up -d
