@@ -18,7 +18,7 @@ jobs:
       - name: Login to DockerHub
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
-      - name: Build and Tag Docker Image
+      - name: Build Docker Image with Tags
         run: |
           docker build \
             -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest \
