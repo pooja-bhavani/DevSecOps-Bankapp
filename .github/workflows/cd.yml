@@ -46,7 +46,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             # -------------------------
-            # Disk cleanup if space < 20%
+            # Disk cleanup if space >= 80%
             # -------------------------
             THRESHOLD=80
             USAGE=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
@@ -89,7 +89,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             # -------------------------
-            # Disk cleanup if space < 20%
+            # Disk cleanup if space >= 80%
             # -------------------------
             THRESHOLD=80
             USAGE=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
