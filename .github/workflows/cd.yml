@@ -4,91 +4,109 @@ on:
   workflow_call:
 
 permissions:
-  id-token: write  # Required for OIDC
   contents: read
 
 jobs:
 
-  # ============================================================
-  # GATE 8: DEPLOY
-  # ============================================================
-  deploy:
-    name: Deploy to EC2 via SSH
+  # =========================
+  # Build & Push BankApp Docker Image
+  # =========================
+  build-and-push-bankapp:
+    name: Build & Push BankApp Docker Image
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Create Deployment Directory
+      - name: Login to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Build BankApp Docker Image
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest ./ 
+
+      - name: Push BankApp Docker Image
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
+
+  # =========================
+  # Deploy BankApp to EC2
+  # =========================
+  deploy-bankapp:
+    name: Deploy BankApp
+    runs-on: ubuntu-latest
+    needs: build-and-push-bankapp
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Create Deployment Directory on BankApp EC2
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.EC2_HOST }}
+          host: ${{ secrets.BANKAPP_EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: mkdir -p ~/bankapp
 
-      - name: Copy app-tier.yml to EC2
+      - name: Copy docker-compose to BankApp EC2
         uses: appleboy/scp-action@master
         with:
-          host: ${{ secrets.EC2_HOST }}
+          host: ${{ secrets.BANKAPP_EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "app-tier.yml"
-          target: "~/bankapp"
+          source: docker-compose-bankapp.yml
+          target: ~/bankapp
 
-      - name: Deploy via SSH
+      - name: Pull & Deploy BankApp
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.EC2_HOST }}
+          host: ${{ secrets.BANKAPP_EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            # Login to ECR
-            aws ecr get-login-password --region ${{ secrets.AWS_REGION }} | docker login --username AWS --password-stdin ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com
-
             cd ~/bankapp
+            echo "DB_HOST=${{ secrets.DB_HOST }}" > .env
+            echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
+            echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
+            echo "DB_USER=${{ secrets.DB_USER }}" >> .env
+            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+            echo "OLLAMA_URL=${{ secrets.OLLAMA_URL }}" >> .env
+            docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password ${{ secrets.DOCKERHUB_TOKEN }}
+            docker compose -f docker-compose-bankapp.yml pull
+            docker compose -f docker-compose-bankapp.yml up -d
 
-            # Fetch secrets from Secrets Manager and create .env
-            aws secretsmanager get-secret-value --secret-id bankapp/prod-secrets --query SecretString --output text > secrets.json
-
-            # Extract variables and write to .env
-            echo "DB_HOST=$(jq -r .DB_HOST secrets.json)" > .env
-            echo "DB_PORT=$(jq -r .DB_PORT secrets.json)" >> .env
-            echo "DB_NAME=$(jq -r .DB_NAME secrets.json)" >> .env
-            echo "DB_USER=$(jq -r .DB_USER secrets.json)" >> .env
-            echo "DB_PASSWORD=$(jq -r .DB_PASSWORD secrets.json)" >> .env
-            echo "OLLAMA_URL=$(jq -r .OLLAMA_URL secrets.json)" >> .env
-            echo "ECR_REGISTRY=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com" >> .env
-            echo "ECR_REPOSITORY=${{ secrets.ECR_REPOSITORY }}" >> .env
-            echo "IMAGE_TAG=${{ github.sha }}" >> .env
-
-            # Clean up
-            rm secrets.json
-
-            # Pull and Deploy using the app-tier.yml transferred via SCP
-            docker compose -f app-tier.yml pull
-            docker compose -f app-tier.yml up -d --build
-
-  # ============================================================
-  # GATE 9: DAST - Dynamic Application Security Testing
-  # ============================================================
-  dast:
-    name: DAST - OWASP ZAP Baseline Scan
+  # =========================
+  # Deploy Ollama to EC2
+  # =========================
+  deploy-ollama:
+    name: Deploy Ollama
     runs-on: ubuntu-latest
-    needs: deploy
     steps:
-      - name: Run OWASP ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.15.0
-        continue-on-error: true  # Workaround for ZAP's internal artifact upload bug
-        with:
-          target: 'http://${{ secrets.EC2_HOST }}:8080'
-          artifact_name: zapreport
-          fail_action: false
-          allow_issue_writing: false
+      - name: Checkout Repo
+        uses: actions/checkout@v4
 
-      - name: Upload ZAP Report
-        uses: actions/upload-artifact@v4
-        if: always()
+      - name: Create Deployment Directory on Ollama EC2
+        uses: appleboy/ssh-action@master
         with:
-          name: zap-dast-report
-          path: report_html.html
+          host: ${{ secrets.OLLAMA_EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: mkdir -p ~/ollama
+
+      - name: Copy docker-compose to Ollama EC2
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.OLLAMA_EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: docker-compose-ollama.yml
+          target: ~/ollama
+
+      - name: Pull & Deploy Ollama
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.OLLAMA_EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/ollama
+            docker compose -f docker-compose-ollama.yml pull
+            docker compose -f docker-compose-ollama.yml up -d
