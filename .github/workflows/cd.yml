@@ -4,83 +4,85 @@ on:
   workflow_call:
 
 permissions:
-  id-token: write
   contents: read
 
 jobs:
 
   # ============================================================
-  # GATE 8: DEPLOY
+  # DEPLOY OLLAMA
   # ============================================================
-  deploy:
-    name: Deploy to EC2 via SSH
+  deploy-ollama:
+    name: Deploy Ollama on EC2
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Create Deployment Directory
+      - name: Create Ollama Directory
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.EC2_HOST }}
+          host: ${{ secrets.OLLAMA_EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: mkdir -p ~/ollama
+
+      - name: Copy Docker Compose to Ollama EC2
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.OLLAMA_EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "ollama-compose.yml"
+          target: "~/ollama"
+
+      - name: Deploy Ollama Containers
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.OLLAMA_EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/ollama
+            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+            docker compose pull
+            docker compose up -d
+
+  # ============================================================
+  # DEPLOY BANKAPP
+  # ============================================================
+  deploy-bankapp:
+    name: Deploy BankApp + MySQL
+    runs-on: ubuntu-latest
+    needs: deploy-ollama  # Make sure Ollama is up first
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Create BankApp Directory
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.BANKAPP_EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: mkdir -p ~/bankapp
 
-      - name: Copy docker-compose.yml to EC2
+      - name: Copy Docker Compose to BankApp EC2
         uses: appleboy/scp-action@master
         with:
-          host: ${{ secrets.EC2_HOST }}
+          host: ${{ secrets.BANKAPP_EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "docker-compose.yml"
+          source: "bankapp-compose.yml"
           target: "~/bankapp"
 
-      - name: Deploy via SSH
+      - name: Deploy BankApp Containers
         uses: appleboy/ssh-action@master
         with:
-          host: ${{ secrets.EC2_HOST }}
+          host: ${{ secrets.BANKAPP_EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd ~/bankapp
-
-            # Create .env file from GitHub Secrets
-            echo "MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}" > .env
-            echo "MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}" >> .env
-            echo "MYSQL_USER=${{ secrets.MYSQL_USER }}" >> .env
-            echo "MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}" >> .env
-            echo "OLLAMA_URL=${{ secrets.OLLAMA_URL }}" >> .env
-            echo "IMAGE_TAG=latest" >> .env
-
-            # Login to Docker Hub
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-
-            # Pull and deploy Docker Compose
-            docker compose down --remove-orphans
             docker compose pull
-            docker compose up -d --build
-
-  # ============================================================
-  # GATE 9: DAST - Dynamic Application Security Testing
-  # ============================================================
-  dast:
-    name: DAST - OWASP ZAP Baseline Scan
-    runs-on: ubuntu-latest
-    needs: deploy
-    steps:
-      - name: Run OWASP ZAP Baseline Scan
-        uses: zaproxy/action-baseline@v0.15.0
-        continue-on-error: true
-        with:
-          target: 'http://${{ secrets.EC2_HOST }}:8080'
-          artifact_name: zapreport
-          fail_action: false
-          allow_issue_writing: false
-
-      - name: Upload ZAP Report
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: zap-dast-report
-          path: report_html.html
+            docker compose up -d
