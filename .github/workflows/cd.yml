@@ -120,7 +120,6 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd ~/ollama
-            docker compose -f docker-compose-ollama.yml down || true
-            sudo lsof -ti:11434 | xargs -r sudo kill -9 || true
+            docker compose -f docker-compose-ollama.yml down --remove-orphans
             docker compose -f docker-compose-ollama.yml pull
             docker compose -f docker-compose-ollama.yml up -d
