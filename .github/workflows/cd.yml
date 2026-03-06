@@ -1,74 +1,106 @@
 name: CD - Deploy BankApp & Ollama
 
 on:
-  workflow_dispatch:
+  workflow_call:
 
 permissions:
-  id-token: write
   contents: read
 
 jobs:
+
+  # =========================
+  # Build & Push BankApp Docker Image
+  # =========================
+  build-and-push-bankapp:
+    name: Build & Push BankApp Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Login to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Build BankApp Docker Image
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest ./ 
+
+      - name: Push BankApp Docker Image
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
+
+  # =========================
+  # Deploy BankApp to EC2
+  # =========================
   deploy-bankapp:
     name: Deploy BankApp
     runs-on: ubuntu-latest
+    needs: build-and-push-bankapp
     steps:
-      - name: Checkout repository
+      - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Deploy to BankApp EC2
+      - name: Deploy BankApp
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.BANKAPP_EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            echo "Checking disk space..."
-            df -h /
-            
+            # -------------------------
+            # Disk cleanup if space < 20%
+            # -------------------------
             THRESHOLD=80
             USAGE=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
             if [ $USAGE -ge $THRESHOLD ]; then
-              echo "Disk usage is above $THRESHOLD%, cleaning Docker..."
+              echo "Disk usage $USAGE% > $THRESHOLD%, cleaning Docker..."
               docker system prune -af
               docker volume prune -f
             fi
-            
-            mkdir -p ~/bankapp
-            echo "Copy docker-compose file..."
-            # Copy CD workflow will handle SCP outside this SSH script
-            echo "Pull and recreate BankApp containers..."
-            docker-compose -f ~/bankapp/docker-compose-bankapp.yml down
-            docker-compose -f ~/bankapp/docker-compose-bankapp.yml pull
-            docker-compose -f ~/bankapp/docker-compose-bankapp.yml up -d --build
 
+            mkdir -p ~/bankapp
+            cd ~/bankapp
+
+            # Copy .env
+            echo "DB_HOST=${{ secrets.DB_HOST }}" > .env
+            echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
+            echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
+            echo "DB_USER=${{ secrets.DB_USER }}" >> .env
+            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+            echo "OLLAMA_URL=${{ secrets.OLLAMA_URL }}" >> .env
+
+            docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password ${{ secrets.DOCKERHUB_TOKEN }}
+            docker compose -f docker-compose-bankapp.yml pull
+            docker compose -f docker-compose-bankapp.yml up -d --build
+
+  # =========================
+  # Deploy Ollama to EC2
+  # =========================
   deploy-ollama:
     name: Deploy Ollama
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
+      - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Deploy to Ollama EC2
+      - name: Deploy Ollama
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.OLLAMA_EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            echo "Checking disk space..."
-            df -h /
-            
+            # -------------------------
+            # Disk cleanup if space < 20%
+            # -------------------------
             THRESHOLD=80
             USAGE=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
             if [ $USAGE -ge $THRESHOLD ]; then
-              echo "Disk usage is above $THRESHOLD%, cleaning Docker..."
+              echo "Disk usage $USAGE% > $THRESHOLD%, cleaning Docker..."
               docker system prune -af
               docker volume prune -f
             fi
-            
+
             mkdir -p ~/ollama
-            echo "Copy docker-compose file..."
-            echo "Pull and recreate Ollama container..."
-            docker-compose -f ~/ollama/docker-compose-ollama.yml down
-            docker-compose -f ~/ollama/docker-compose-ollama.yml pull
-            docker-compose -f ~/ollama/docker-compose-ollama.yml up -d --build
+            cd ~/ollama
+
+            docker compose -f docker-compose-ollama.yml pull
+            docker compose -f docker-compose-ollama.yml up -d --build
