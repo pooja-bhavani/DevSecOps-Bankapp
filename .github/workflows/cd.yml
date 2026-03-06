@@ -120,6 +120,8 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd ~/ollama
-            docker compose -f docker-compose-ollama.yml down
+            docker compose -f docker-compose-ollama.yml down || true
+            docker ps -q --filter "publish=11434" | xargs -r docker stop
+            docker ps -aq --filter "publish=11434" | xargs -r docker rm
             docker compose -f docker-compose-ollama.yml pull
             docker compose -f docker-compose-ollama.yml up -d
