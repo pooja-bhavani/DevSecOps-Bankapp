@@ -25,15 +25,25 @@ jobs:
       - name: Build BankApp Image
         run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest ./bankapp
 
-      - name: Push BankApp Image
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
+      - name: Tag BankApp with SHA
+        run: docker tag ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:${{ github.sha }}
+
+      - name: Push BankApp Images
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:${{ github.sha }}
 
       # -------------------- Ollama --------------------
       - name: Build Ollama Image
         run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/ollama:latest ./ollama
 
-      - name: Push Ollama Image
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/ollama:latest
+      - name: Tag Ollama with SHA
+        run: docker tag ${{ secrets.DOCKERHUB_USERNAME }}/ollama:latest ${{ secrets.DOCKERHUB_USERNAME }}/ollama:${{ github.sha }}
+
+      - name: Push Ollama Images
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/ollama:latest
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/ollama:${{ github.sha }}
 
   # ============================================================
   # DEPLOY BANKAPP
