@@ -8,6 +8,9 @@ permissions:
 
 jobs:
 
+  # ============================================================
+  # BUILD & PUSH DOCKER IMAGE
+  # ============================================================
   build-and-push:
     name: Build and Push BankApp Image
     runs-on: ubuntu-latest
@@ -18,17 +21,15 @@ jobs:
       - name: Login to DockerHub
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
-      - name: Build Docker Image with Tags
-        run: |
-          docker build \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest \
-            -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:${{ github.sha }} .
+      - name: Build Docker Image
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest .
 
-      - name: Push Docker Images
-        run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:${{ github.sha }}
+      - name: Push Docker Image
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
 
+  # ============================================================
+  # DEPLOY BANKAPP
+  # ============================================================
   deploy-bankapp:
     name: Deploy BankApp to EC2
     runs-on: ubuntu-latest
@@ -63,6 +64,9 @@ jobs:
             docker compose pull
             docker compose up -d
 
+  # ============================================================
+  # DEPLOY OLLAMA
+  # ============================================================
   deploy-ollama:
     name: Deploy Ollama to EC2
     runs-on: ubuntu-latest
