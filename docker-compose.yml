@@ -17,6 +17,28 @@ services:
       start_period: 30s
     networks:
       - bankapp-net
+    profiles:
+      - bankapp
+
+  bankapp:
+    image: poojabhavani08/bankapp:latest
+    container_name: bankapp
+    ports:
+      - "8080:8080"
+    environment:
+      MYSQL_HOST: mysql
+      MYSQL_PORT: 3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+      OLLAMA_URL: ${OLLAMA_URL}   # Ollama EC2 URL
+    depends_on:
+      mysql:
+        condition: service_healthy
+    networks:
+      - bankapp-net
+    profiles:
+      - bankapp
 
   ollama:
     image: ollama/ollama
@@ -32,6 +54,8 @@ services:
       retries: 5
     networks:
       - bankapp-net
+    profiles:
+      - ollama
 
   ollama-pull-model:
     image: ollama/ollama
@@ -47,26 +71,8 @@ services:
     command: -c "ollama pull tinyllama"
     networks:
       - bankapp-net
-
-  bankapp:
-    build: .
-    container_name: bankapp
-    ports:
-      - "8080:8080"
-    environment:
-      MYSQL_HOST: mysql
-      MYSQL_PORT: 3306
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
-      OLLAMA_URL: ${OLLAMA_URL}
-    depends_on:
-      mysql:
-        condition: service_healthy
-      ollama-pull-model:
-        condition: service_completed_successfully
-    networks:
-      - bankapp-net
+    profiles:
+      - ollama
 
 volumes:
   mysql-data:
