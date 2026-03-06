@@ -18,13 +18,14 @@ jobs:
       - name: Checkout Code
         uses: actions/checkout@v4
 
+      - name: Login to DockerHub
+        run: |
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
       - name: Build Docker Image
         run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest .
 
-      - name: Login to DockerHub
-        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-
-      - name: Push Docker Image
+      - name: Push Docker Image to DockerHub
         run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
 
   # ============================================================
@@ -43,7 +44,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: mkdir -p ~/bankapp
 
-      - name: Copy docker-compose file to EC2
+      - name: Copy docker-compose file to BankApp EC2
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.BANKAPP_EC2_HOST }}
@@ -62,7 +63,7 @@ jobs:
             cd ~/bankapp
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
             docker compose pull
-            docker compose up -d
+            docker compose up -d --build
 
   # ============================================================
   # DEPLOY OLLAMA
@@ -79,7 +80,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: mkdir -p ~/ollama
 
-      - name: Copy docker-compose file to EC2
+      - name: Copy docker-compose file to Ollama EC2
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.OLLAMA_EC2_HOST }}
@@ -97,4 +98,4 @@ jobs:
           script: |
             cd ~/ollama
             docker compose pull
-            docker compose up -d
+            docker compose up -d --build
