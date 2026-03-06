@@ -9,56 +9,16 @@ permissions:
 jobs:
 
   # ============================================================
-  # DEPLOY OLLAMA
-  # ============================================================
-  deploy-ollama:
-    name: Deploy Ollama on EC2
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Code
-        uses: actions/checkout@v4
-
-      - name: Create Ollama Directory
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.OLLAMA_EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: mkdir -p ~/ollama
-
-      - name: Copy Docker Compose to Ollama EC2
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ secrets.OLLAMA_EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: "ollama-compose.yml"
-          target: "~/ollama"
-
-      - name: Deploy Ollama Containers
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.OLLAMA_EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            cd ~/ollama
-            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-            docker compose pull
-            docker compose up -d
-
-  # ============================================================
   # DEPLOY BANKAPP
   # ============================================================
   deploy-bankapp:
-    name: Deploy BankApp + MySQL
+    name: Deploy BankApp on EC2
     runs-on: ubuntu-latest
-    needs: deploy-ollama  # Make sure Ollama is up first
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Create BankApp Directory
+      - name: Create Deployment Directory on BankApp EC2
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.BANKAPP_EC2_HOST }}
@@ -66,16 +26,16 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: mkdir -p ~/bankapp
 
-      - name: Copy Docker Compose to BankApp EC2
+      - name: Copy docker-compose file to BankApp EC2
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.BANKAPP_EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: "bankapp-compose.yml"
+          source: "docker-compose.yml"
           target: "~/bankapp"
 
-      - name: Deploy BankApp Containers
+      - name: Pull & Deploy BankApp
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.BANKAPP_EC2_HOST }}
@@ -84,5 +44,66 @@ jobs:
           script: |
             cd ~/bankapp
             echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+            docker compose down --remove-orphans
             docker compose pull
             docker compose up -d
+
+  # ============================================================
+  # DEPLOY OLLAMA
+  # ============================================================
+  deploy-ollama:
+    name: Deploy Ollama on EC2
+    runs-on: ubuntu-latest
+    steps:
+      - name: Create Deployment Directory on Ollama EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.OLLAMA_EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: mkdir -p ~/ollama
+
+      - name: Copy ollama-compose.yml to Ollama EC2
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.OLLAMA_EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: "ollama-compose.yml"
+          target: "~/ollama"
+
+      - name: Pull & Deploy Ollama
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.OLLAMA_EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/ollama
+            docker compose down --remove-orphans
+            docker compose pull
+            docker compose up -d
+
+  # ============================================================
+  # OPTIONAL: DAST SCAN (BankApp)
+  # ============================================================
+  dast:
+    name: DAST - OWASP ZAP Baseline Scan
+    runs-on: ubuntu-latest
+    needs: deploy-bankapp
+    steps:
+      - name: Run OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.15.0
+        continue-on-error: true
+        with:
+          target: 'http://${{ secrets.BANKAPP_EC2_HOST }}:8080'
+          artifact_name: zapreport
+          fail_action: false
+          allow_issue_writing: false
+
+      - name: Upload ZAP Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-dast-report
+          path: report_html.html
