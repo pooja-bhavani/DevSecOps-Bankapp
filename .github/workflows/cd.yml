@@ -7,20 +7,52 @@ permissions:
   contents: read
 
 jobs:
+
+  # =========================
+  # Build & Push BankApp Docker Image
+  # =========================
+  build-and-push-bankapp:
+    name: Build & Push BankApp Docker Image
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Login to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Build BankApp Docker Image
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest ./ 
+
+      - name: Push BankApp Docker Image
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
+
+  # =========================
+  # Deploy BankApp to EC2
+  # =========================
   deploy-bankapp:
     name: Deploy BankApp
     runs-on: ubuntu-latest
+    needs: build-and-push-bankapp
     steps:
-      - name: Checkout Code
+      - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Copy docker-compose.yml to BankApp EC2
+      - name: Create Deployment Directory on BankApp EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.BANKAPP_EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: mkdir -p ~/bankapp
+
+      - name: Copy docker-compose to BankApp EC2
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.BANKAPP_EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: docker-compose.yml
+          source: docker-compose-bankapp.yml
           target: ~/bankapp
 
       - name: Pull & Deploy BankApp
@@ -31,30 +63,41 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd ~/bankapp
-            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
             echo "DB_HOST=${{ secrets.DB_HOST }}" > .env
             echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
             echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
             echo "DB_USER=${{ secrets.DB_USER }}" >> .env
             echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
             echo "OLLAMA_URL=${{ secrets.OLLAMA_URL }}" >> .env
-            docker compose pull
-            docker compose up -d
+            docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password ${{ secrets.DOCKERHUB_TOKEN }}
+            docker compose -f docker-compose-bankapp.yml pull
+            docker compose -f docker-compose-bankapp.yml up -d
 
+  # =========================
+  # Deploy Ollama to EC2
+  # =========================
   deploy-ollama:
     name: Deploy Ollama
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Code
+      - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Copy docker-compose.yml to Ollama EC2
+      - name: Create Deployment Directory on Ollama EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.OLLAMA_EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: mkdir -p ~/ollama
+
+      - name: Copy docker-compose to Ollama EC2
         uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.OLLAMA_EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          source: docker-compose.yml
+          source: docker-compose-ollama.yml
           target: ~/ollama
 
       - name: Pull & Deploy Ollama
@@ -65,6 +108,5 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd ~/ollama
-            echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-            docker compose pull
-            docker compose up -d
+            docker compose -f docker-compose-ollama.yml pull
+            docker compose -f docker-compose-ollama.yml up -d
