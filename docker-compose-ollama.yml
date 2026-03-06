@@ -1,7 +1,9 @@
+version: "3.9"
+
 services:
   ollama:
-    image: ollama/ollama
-    container_name: bankapp-ollama
+    image: ollama/ollama:latest
+    container_name: ollama
     ports:
       - "11434:11434"
     volumes:
@@ -12,13 +14,13 @@ services:
       timeout: 5s
       retries: 5
     networks:
-      - bankapp-net
+      - ollama-net
 
   ollama-pull-model:
-    image: ollama/ollama
+    image: ollama/ollama:latest
     container_name: ollama-pull-model
     environment:
-      - OLLAMA_HOST=ollama
+      OLLAMA_HOST: ollama
     volumes:
       - ollama-data:/root/.ollama
     depends_on:
@@ -27,11 +29,11 @@ services:
     entrypoint: /bin/sh
     command: -c "ollama pull tinyllama"
     networks:
-      - bankapp-net
+      - ollama-net
 
 volumes:
   ollama-data:
 
 networks:
-  bankapp-net:
+  ollama-net:
     driver: bridge
