@@ -8,9 +8,9 @@ permissions:
 
 jobs:
 
-  # =========================
+  # ====================================================
   # Build & Push BankApp Docker Image
-  # =========================
+  # ====================================================
   build-and-push-bankapp:
     name: Build & Push BankApp Docker Image
     runs-on: ubuntu-latest
@@ -22,14 +22,14 @@ jobs:
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
       - name: Build BankApp Docker Image
-        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest ./ 
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest ./
 
       - name: Push BankApp Docker Image
         run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
 
-  # =========================
+  # ====================================================
   # Deploy BankApp to EC2
-  # =========================
+  # ====================================================
   deploy-bankapp:
     name: Deploy BankApp
     runs-on: ubuntu-latest
@@ -46,7 +46,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             # -------------------------
-            # Disk cleanup if space >= 80%
+            # Cleanup if disk usage >= 80%
             # -------------------------
             THRESHOLD=80
             USAGE=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
@@ -59,21 +59,24 @@ jobs:
             mkdir -p ~/bankapp
             cd ~/bankapp
 
-            # Copy .env
-            echo "DB_HOST=${{ secrets.DB_HOST }}" > .env
-            echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
-            echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
-            echo "DB_USER=${{ secrets.DB_USER }}" >> .env
-            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
-            echo "OLLAMA_URL=${{ secrets.OLLAMA_URL }}" >> .env
+            # Write .env
+            cat <<EOF > .env
+DB_HOST=${{ secrets.DB_HOST }}
+DB_PORT=${{ secrets.DB_PORT }}
+DB_NAME=${{ secrets.DB_NAME }}
+DB_USER=${{ secrets.DB_USER }}
+DB_PASSWORD=${{ secrets.DB_PASSWORD }}
+OLLAMA_URL=${{ secrets.OLLAMA_URL }}
+EOF
 
+            # Pull & start containers
             docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password ${{ secrets.DOCKERHUB_TOKEN }}
             docker compose -f docker-compose-bankapp.yml pull
             docker compose -f docker-compose-bankapp.yml up -d --build
 
-  # =========================
+  # ====================================================
   # Deploy Ollama to EC2
-  # =========================
+  # ====================================================
   deploy-ollama:
     name: Deploy Ollama
     runs-on: ubuntu-latest
@@ -89,7 +92,7 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             # -------------------------
-            # Disk cleanup if space >= 80%
+            # Cleanup if disk usage >= 80%
             # -------------------------
             THRESHOLD=80
             USAGE=$(df / | tail -1 | awk '{print $5}' | sed 's/%//')
@@ -102,5 +105,6 @@ jobs:
             mkdir -p ~/ollama
             cd ~/ollama
 
+            # Pull & start Ollama containers
             docker compose -f docker-compose-ollama.yml pull
             docker compose -f docker-compose-ollama.yml up -d --build
