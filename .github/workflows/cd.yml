@@ -22,7 +22,7 @@ jobs:
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
       - name: Build BankApp Docker Image
-        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest ./ 
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest ./
 
       - name: Push BankApp Docker Image
         run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
@@ -83,6 +83,17 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
+      - name: Cleanup Disk Space on Ollama EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.OLLAMA_EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            docker container prune --force || true
+            docker image prune -a --force || true
+            docker volume prune --force || true
+
       - name: Create Deployment Directory on Ollama EC2
         uses: appleboy/ssh-action@master
         with:
@@ -98,7 +109,8 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           source: docker-compose-ollama.yml
-          target: ~/ollama
+          target: ~/ollama/
+          strip_components: 0
 
       - name: Pull & Deploy Ollama
         uses: appleboy/ssh-action@master
