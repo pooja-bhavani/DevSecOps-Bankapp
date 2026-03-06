@@ -63,13 +63,15 @@ jobs:
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd ~/bankapp
-            echo "DB_HOST=${{ secrets.DB_HOST }}" > .env
-            echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
-            echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
-            echo "DB_USER=${{ secrets.DB_USER }}" >> .env
-            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+            
+            # Create .env file dynamically
+            echo "MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}" > .env
+            echo "MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}" >> .env
+            echo "MYSQL_USER=${{ secrets.MYSQL_USER }}" >> .env
+            echo "MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}" >> .env
             echo "OLLAMA_URL=${{ secrets.OLLAMA_URL }}" >> .env
-            docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password ${{ secrets.DOCKERHUB_TOKEN }}
+
+            docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password ${{ secrets.DOCKERHUB_TOKEN }} --password-stdin
             docker compose -f docker-compose-bankapp.yml pull
             docker compose -f docker-compose-bankapp.yml up -d
 
