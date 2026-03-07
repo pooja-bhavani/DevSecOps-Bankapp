@@ -11,8 +11,9 @@ jobs:
   # =========================
   # Build & Push BankApp Docker Image
   # =========================
+  
   build-and-push-bankapp:
-    name: Build & Push BankApp Image
+    name: BankApp Image
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
@@ -30,10 +31,10 @@ jobs:
   # =========================
   # Deploy BankApp to EC2
   # =========================
+  
   deploy-bankapp:
     name: Deploy BankApp
     runs-on: ubuntu-latest
-    needs: build-and-push-bankapp
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
