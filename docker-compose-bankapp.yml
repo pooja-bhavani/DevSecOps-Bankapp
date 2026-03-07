@@ -1,54 +1,60 @@
 services:
-  ollama:
-    image: ollama/ollama:latest
-    container_name: bankapp-ollama
+
+  mysql:
+    image: mysql:8.0
+    container_name: bankapp-mysql
+    restart: unless-stopped
+
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+
     ports:
-      - "11434:11434"
+      - "3306:3306"
+
     volumes:
-      - ollama-data:/root/.ollama
+      - mysql-data:/var/lib/mysql
+
     healthcheck:
-      test: ["CMD", "ollama", "list"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
       timeout: 5s
       retries: 5
-    networks:
-      - ollama-net
+      start_period: 30s
 
-  ollama-pull-model:
-    image: ollama/ollama:latest
-    container_name: ollama-pull-model
-    environment:
-      OLLAMA_HOST: ollama
-    volumes:
-      - ollama-data:/root/.ollama
-    depends_on:
-      ollama:
-        condition: service_healthy
-    entrypoint: /bin/sh
-    command: -c "ollama pull tinyllama"
     networks:
-      - ollama-net
+      - bankapp-net
+
+
+  bankapp:
+    image: poojabhavani08/bankapp:latest
+    container_name: bankapp
+    restart: unless-stopped
+
+    ports:
+      - "8080:8080"
+
+    environment:
+      DB_HOST: mysql
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USER: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      OLLAMA_URL: ${OLLAMA_URL}
+
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+    networks:
+      - bankapp-net
+
 
 volumes:
-  ollama-data:
+  mysql-data:
 
 networks:
-  ollama-net:
+  bankapp-net:
     driver: bridge
-
-
-echo "MYSQL_ROOT_PASSWORD=Test@123" > .env
-echo "MYSQL_DATABASE=bankappdb" >> .env
-echo "MYSQL_USER=root" >> .env
-echo "MYSQL_PASSWORD=Test@123" >> .env
-
-echo "DB_HOST=mysql" >> .env
-echo "DB_PORT=3306" >> .env
-echo "DB_NAME=bankappdb" >> .env
-echo "DB_USER=root" >> .env
-echo "DB_PASSWORD=Test@123" >> .env
-echo "OLLAMA_URL=http://${{ secrets.OLLAMA_EC2_HOST }}:11434" >> .env
-echo "APP_PORT=8080" >> .env
-echo "DOCKERHUB_USERNAME=${{ secrets.DOCKERHUB_USERNAME }}" >> .env
-echo "DOCKERHUB_PASSWORD=${{ secrets.DOCKERHUB_TOKEN }}" >> .env
-echo "IMAGE_TAG=latest" >> .env
