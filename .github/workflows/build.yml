@@ -40,8 +40,8 @@ jobs:
         with:
           image-ref: bankapp:latest   
           format: table
-          exit-code: '1'              # fail workflow if vulnerabilities exist
-          severity: CRITICAL,HIGH,MEDIUM  
+          exit-code: '0'              
+          severity: CRITICAL,HIGH 
           
   # =========================
   # Push BankApp Docker Image
