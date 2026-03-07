@@ -102,7 +102,6 @@ The CI/CD pipeline enforces **9 sequential security gates** before any code reac
       ```
 
 3. **AI Engine Tier (Ollama)**:
-   - Deploy a dedicated Ubuntu EC2 instance with bellow `user data`.
 
    - Automate initialization using the [ollama-setup.sh](scripts/ollama-setup.sh) script via EC2 User Data.
     
