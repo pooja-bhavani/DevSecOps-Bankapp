@@ -1,55 +1,37 @@
-version: "3.9"
-
 services:
-
-  mysql:
-    image: mysql:8.0
-    container_name: bankapp-mysql
-    restart: always
-    env_file:
-      - .env
-    environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
-      MYSQL_USER: ${MYSQL_USER}
-      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+  ollama:
+    image: ollama/ollama:latest
+    container_name: bankapp-ollama
     ports:
-      - "3306:3306"
+      - "11434:11434"
     volumes:
-      - mysql-data:/var/lib/mysql
+      - ollama-data:/root/.ollama
     healthcheck:
-      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$MYSQL_ROOT_PASSWORD"]
+      test: ["CMD", "ollama", "list"]
       interval: 10s
       timeout: 5s
-      retries: 10
-      start_period: 40s
+      retries: 5
     networks:
-      - bankapp-net
+      - ollama-net
 
-  bankapp:
-    image: poojabhavani08/bankapp:${IMAGE_TAG}
-    container_name: bankapp
-    restart: always
-    env_file:
-      - .env
-    ports:
-      - "8080:8080"
+  ollama-pull-model:
+    image: ollama/ollama:latest
+    container_name: ollama-pull-model
     environment:
-      DB_HOST: mysql
-      DB_PORT: 3306
-      DB_NAME: ${MYSQL_DATABASE}
-      DB_USER: ${MYSQL_USER}
-      DB_PASSWORD: ${MYSQL_PASSWORD}
-      OLLAMA_URL: ${OLLAMA_URL}
+      OLLAMA_HOST: ollama
+    volumes:
+      - ollama-data:/root/.ollama
     depends_on:
-      mysql:
+      ollama:
         condition: service_healthy
+    entrypoint: /bin/sh
+    command: -c "ollama pull tinyllama"
     networks:
-      - bankapp-net
+      - ollama-net
 
 volumes:
-  mysql-data:
+  ollama-data:
 
 networks:
-  bankapp-net:
+  ollama-net:
     driver: bridge
