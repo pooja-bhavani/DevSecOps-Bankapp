@@ -201,6 +201,11 @@ All scan reports (OWASP, Trivy, ZAP) are uploaded as downloadable **Artifacts** 
 
    ![github-actions](screenshots/16.png)
 
+- Image
+
+   <img width="2311" height="546" alt="image" src="https://github.com/user-attachments/assets/f4347d30-53e9-4602-b1f4-033fdbbf1e03" />
+ 
+
 - Artifacts
 
    ![artifacts](screenshots/26.png)
