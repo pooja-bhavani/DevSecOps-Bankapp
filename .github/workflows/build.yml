@@ -62,3 +62,4 @@ jobs:
 
       - name: Push BankApp Docker Image
         run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
+
