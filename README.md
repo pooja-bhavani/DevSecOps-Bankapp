@@ -2,7 +2,7 @@
 
 # DevSecOps Banking Application
 
-A high-performance, containerized financial platform built with Spring Boot 3, Java 21, and integrated Contextual AI. This project implements a secure "DevSecOps Pipeline" using GitHub Actions, OIDC authentication, and AWS managed services.
+A high-performance, containerized financial platform built with Spring Boot 3, Java 21, and integrated Contextual AI. This project implements a secure "DevSecOps Pipeline" using GitHub Actions, OIDC authentication.
 
 [![Java Version](https://img.shields.io/badge/Java-21-blue.svg)](https://www.oracle.com/java/technologies/javase/jdk21-archive-downloads.html)
 [![Spring Boot](https://img.shields.io/badge/Spring%20Boot-3.4.1-brightgreen.svg)](https://spring.io/projects/spring-boot)
@@ -31,35 +31,23 @@ graph TD
             AppEC2[App EC2 - Ubuntu/Docker]
         end
 
-        subgraph "Data Tier"
-            RDS[(Amazon RDS - MySQL 8.0)]
-        end
-
         subgraph "Artificial Intelligence Tier"
             Ollama[Ollama EC2 - AI Engine]
         end
 
         subgraph "Identity & Secrets"
-            Secrets[AWS Secrets Manager]
             OIDC[IAM OIDC Provider]
-        end
-
-        subgraph "Registry"
-            ECR[Amazon ECR]
         end
     end
 
     GH -->|1. OIDC Authentication| OIDC
-    GH -->|2. Push Scanned Image| ECR
+    GH -->|2. Push Scanned Image| DockerHub
     GH -->|3. SSH Orchestration| AppEC2
     GH -->|4. DAST Scan| AppEC2
-    
+
     User -->|Port 8080| AppEC2
-    AppEC2 -->|JDBC Connection| RDS
     AppEC2 -->|REST Integration| Ollama
-    AppEC2 -->|Runtime Secrets| Secrets
-    AppEC2 -->|Pull Image| ECR
-```
+    AppEC2 -->|Pull Image| DockerHub
 
 ---
 
