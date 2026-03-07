@@ -33,7 +33,7 @@ jobs:
   # =========================
   
   deploy-bankapp:
-    name: Deploy BankApp
+    name: Deploy BankApp on EC2 via SSH
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
@@ -78,7 +78,7 @@ jobs:
   # Deploy Ollama to EC2
   # =========================
   deploy-ollama:
-    name: Deploy Ollama
+    name: Deploy Ollama on EC2 via SSH
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
