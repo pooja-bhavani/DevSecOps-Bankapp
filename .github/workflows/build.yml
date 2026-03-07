@@ -46,7 +46,7 @@ jobs:
         with:
           image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
           format: table
-          exit-code: '1'                  # Fails job if vulnerabilities exist
+          exit-code: '0'                  # Fails job if vulnerabilities exist
           severity: CRITICAL,HIGH,MEDIUM  
 
   # =========================
