@@ -91,6 +91,8 @@ The CI/CD pipeline enforces **9 sequential security gates** before any code reac
 
 1. **Application Server (BankApp)**:
 
+- Run on both servers
+  
       ```bash
       #!/bin/bash
 
