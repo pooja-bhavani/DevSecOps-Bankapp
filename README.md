@@ -48,7 +48,7 @@ graph TD
     User -->|Port 8080| AppEC2
     AppEC2 -->|REST Integration| Ollama
     AppEC2 -->|Pull Image| DockerHub
-
+```
 ---
 
 ## Security Pipeline (DevSecOps Pipeline)
