@@ -1,17 +1,22 @@
-# Build stage
+# ----------------------
+# Build Stage
+# ----------------------
 FROM eclipse-temurin:21-jdk-alpine AS build
 WORKDIR /app
 COPY . .
 RUN chmod +x mvnw && ./mvnw clean package -DskipTests -B
 
-# Run stage - alpine has significantly fewer CVEs than ubuntu/jammy
-FROM eclipse-temurin:21-jre-alpine
+# ----------------------
+# Run Stage
+# ----------------------
+# Use Alpine 3.28+ to reduce CVEs, or consider debian-slim for critical fixes
+FROM eclipse-temurin:21-jre-alpine3.28
 WORKDIR /app
 
-# Pull latest security patches for OS libraries
+# Update OS packages and apply latest security patches
 RUN apk update && apk upgrade --no-cache
 
-# Create a non-root user for security (Alpine uses addgroup/adduser instead of groupadd/useradd)
+# Create a non-root user for security
 RUN addgroup -S devsecops && adduser -S -G devsecops devsecops
 USER devsecops
 
