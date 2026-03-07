@@ -1,89 +1,127 @@
-name: Build - Container Build, Scan & Push
+name: CD - Deploy & DAST
 
 on:
-  push:
-    branches:
-      - main
-  pull_request:
   workflow_call:
 
 permissions:
   contents: read
 
-jobs:
+jobs: 
 
-  build-scan-push:
-    name: Build → Scan → Push Image
+  # =========================
+  # Build & Push BankApp Docker Image
+  # =========================
+  build-and-push-bankapp:
+    name: build / Push Docker Image
     runs-on: ubuntu-latest
-
     steps:
-
-      # ---------------------------
-      # Checkout Repository
-      # ---------------------------
-      - name: Checkout Repository
+      - name: Checkout Repo
         uses: actions/checkout@v4
 
-
-      # ---------------------------
-      # Login to DockerHub
-      # ---------------------------
       - name: Login to DockerHub
-        run: |
-          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login \
-          --username "${{ secrets.DOCKERHUB_USERNAME }}" \
-          --password-stdin
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
+      - name: Build BankApp Image
+        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest ./
 
-      # ---------------------------
-      # Build Docker Image
-      # ---------------------------
-      - name: Build Docker Image
-        run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest .
+      - name: Push BankApp Docker Image
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
 
+  # =========================
+  # Deploy BankApp to EC2
+  # =========================
+  deploy-bankapp:
+    name: Pull & Deploy BankApp
+    runs-on: ubuntu-latest
+    needs: build-and-push-bankapp
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
 
-      # ---------------------------
-      # Cache Trivy DB
-      # ---------------------------
-      - name: Cache Trivy DB
-        uses: actions/cache@v4
+      - name: Create Deployment Directory on BankApp EC2
+        uses: appleboy/ssh-action@master
         with:
-          path: ~/.cache/trivy
-          key: trivy-db-${{ runner.os }}-${{ github.run_id }}
-          restore-keys: |
-            trivy-db-${{ runner.os }}-
+          host: ${{ secrets.BANKAPP_EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: mkdir -p ~/bankapp
 
-
-      # ---------------------------
-      # Run Trivy Scan
-      # ---------------------------
-      - name: Run Trivy Container Scan
-        uses: aquasecurity/trivy-action@master
+      - name: Copy docker-compose to BankApp EC2
+        uses: appleboy/scp-action@master
         with:
-          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
-          format: table
-          exit-code: '1'
-          ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
-          output: trivy-report.txt
+          host: ${{ secrets.BANKAPP_EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: docker-compose-bankapp.yml
+          target: ~/bankapp
 
-
-      # ---------------------------
-      # Upload Scan Report
-      # ---------------------------
-      - name: Upload Trivy Report
-        uses: actions/upload-artifact@v4
-        if: always()
+      - name: Set .env & Deploy BankApp
+        uses: appleboy/ssh-action@master
         with:
-          name: trivy-scan-report
-          path: trivy-report.txt
+          host: ${{ secrets.BANKAPP_EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/bankapp
+            echo "DB_HOST=${{ secrets.DB_HOST }}" > .env
+            echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
+            echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
+            echo "DB_USER=${{ secrets.DB_USER }}" >> .env
+            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+            echo "OLLAMA_URL=${{ secrets.OLLAMA_URL }}" >> .env
+            docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password ${{ secrets.DOCKERHUB_TOKEN }}
+            docker compose -f docker-compose-bankapp.yml pull
+            docker compose -f docker-compose-bankapp.yml up -d
 
+  # =========================
+  # Deploy Ollama to EC2
+  # =========================
+  deploy-ollama:
+    name: Start Ollama 
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
 
-      # ---------------------------
-      # Push Image (only if scan passes)
-      # ---------------------------
-      - name: Push Docker Image
-        run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
+      - name: Cleanup Disk Space on Ollama EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.OLLAMA_EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            docker container prune --force || true
+            docker image prune -a --force || true
+            docker volume prune --force || true
+
+      - name: Create Deployment Directory on Ollama EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.OLLAMA_EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: mkdir -p ~/ollama
+
+      - name: Copy docker-compose to Ollama EC2
+        uses: appleboy/scp-action@master
+        with:
+          host: ${{ secrets.OLLAMA_EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: docker-compose-ollama.yml
+          target: ~/ollama/
+          strip_components: 0
+
+      - name: Deploy Ollama
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.OLLAMA_EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            cd ~/ollama
+            docker compose -f docker-compose-ollama.yml down --remove-orphans || true
+            docker rm -f bankapp-ollama || true
+            docker container prune -f || true
+            docker compose -f docker-compose-ollama.yml pull
+            docker compose -f docker-compose-ollama.yml up -d
