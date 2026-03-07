@@ -9,25 +9,6 @@ permissions:
 jobs: 
 
   # =========================
-  # Build & Push BankApp Docker Image
-  # =========================
-  build-and-push-bankapp:
-    name: build / Push Docker Image
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v4
-
-      - name: Login to DockerHub
-        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-
-      - name: Build BankApp Image
-        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest ./
-
-      - name: Push BankApp Docker Image
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
-
-  # =========================
   # Deploy BankApp to EC2
   # =========================
   deploy-bankapp:
