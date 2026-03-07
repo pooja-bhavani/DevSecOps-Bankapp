@@ -75,7 +75,7 @@ jobs:
   # =========================
   # Deploy Ollama to EC2
   # =========================
-  pull-ollama:
+  pull-ollama-image:
     name: 
     runs-on: ubuntu-latest
     steps:
