@@ -2,28 +2,38 @@
 # Build Stage
 # ----------------------
 FROM eclipse-temurin:21-jdk-alpine AS build
+
 WORKDIR /app
 
-# Cache Maven dependencies by copying pom.xml first
 COPY mvnw .
 COPY .mvn .mvn
 COPY pom.xml .
-RUN ./mvnw dependency:go-offline -B
 
-# Copy source and build
-COPY src ./src
+RUN chmod +x mvnw && ./mvnw -B dependency:go-offline
+
+COPY src src
+
 RUN ./mvnw clean package -DskipTests -B
 
+
 # ----------------------
-# Run Stage (Distroless for maximum security)
+# Run Stage
 # ----------------------
-# 'nonroot' tag provides a pre-configured non-root user
-FROM gcr.io/distroless/java21-debian12:nonroot
+FROM eclipse-temurin:21-jre-alpine3.28
+
 WORKDIR /app
 
-# Copy the built artifact from the build stage
+# Apply latest OS security patches
+RUN apk upgrade --no-cache
+
+# Create non-root user
+RUN addgroup -S devsecops && adduser -S devsecops -G devsecops
+
+USER devsecops
+
+# Copy built artifact
 COPY --from=build /app/target/*.jar app.jar
 
-# Distroless images run as 'nonroot' user by default
 EXPOSE 8080
-ENTRYPOINT ["java", "-jar", "app.jar"]
+
+ENTRYPOINT ["java","-XX:+UseContainerSupport","-XX:MaxRAMPercentage=75.0","-jar","app.jar"]
