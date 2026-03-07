@@ -11,8 +11,8 @@ jobs:
   # =========================
   # Build & Push BankApp Docker Image
   # =========================
-  build-bankapp: 
-    name: Build bank-app
+  build:
+    name: build bank-app
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
@@ -30,7 +30,7 @@ jobs:
   scan-bankapp:
     name: Container Scan - Trivy
     runs-on: ubuntu-latest
-    needs: build-bankapp   # Runs after the build job
+    needs: build    # Runs after the build job
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
@@ -49,8 +49,8 @@ jobs:
   # =========================
   # Build & Push BankApp Docker Image
   # =========================
-  push-bankapp-dockerhub: 
-    name: Build bank-app
+  push: 
+    name: push bank-app to dockerhub
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
@@ -65,7 +65,7 @@ jobs:
   # =========================
   # Deploy BankApp to EC2
   # =========================
-  deploy-on-ec2-ssh:
+  deploy:
     name: Deploy on EC2 via SSH
     runs-on: ubuntu-latest
     steps:
@@ -111,7 +111,7 @@ jobs:
   # Deploy Ollama to EC2
   # =========================
   pull-ollama-image:
-    name: pull/deploy ollama image
+    name: pull ollama image
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
@@ -145,7 +145,7 @@ jobs:
           source: docker-compose-ollama.yml
           target: ~/ollama/
           strip_components: 0
-
+   
       - name: 
         uses: appleboy/ssh-action@master
         with:
