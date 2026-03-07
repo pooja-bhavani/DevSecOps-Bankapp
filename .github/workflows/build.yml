@@ -6,13 +6,13 @@ on:
 permissions:
   contents: read
 
-jobs: 
+jobs:
 
   # =========================
-  # Build & Push BankApp Docker Image
+  # Build BankApp Docker Image
   # =========================
-  build-bankapp: 
-    name: 
+  build-bankapp:
+    name: Build BankApp Image
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
@@ -24,16 +24,13 @@ jobs:
       - name: Build BankApp Docker Image
         run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest ./
 
-      - name: Push BankApp Docker Image
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
-
   # =========================
   # Scan BankApp Docker Image
   # =========================
   scan-bankapp:
-    name: Scan BankApp Image
+    name: Container Scan - Trivy (BankApp)
     runs-on: ubuntu-latest
-    needs: build-bankapp   # Runs after the build job
+    needs: build-bankapp
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
@@ -46,15 +43,33 @@ jobs:
         with:
           image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
           format: table
-          exit-code: '1'                  # Fails job if vulnerabilities exist
-          severity: CRITICAL,HIGH,MEDIUM  
+          exit-code: '1'
+          severity: CRITICAL,HIGH,MEDIUM
 
   # =========================
-  # Deploy BankApp to EC2
+  # Push BankApp Docker Image
   # =========================
   push-bankapp-dockerhub:
-    name: Push to Dockerhub
+    name: Push BankApp Image to DockerHub
     runs-on: ubuntu-latest
+    needs: scan-bankapp
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Login to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Push BankApp Docker Image
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
+
+  # =========================
+  # Deploy BankApp on EC2
+  # =========================
+  deploy-bankapp:
+    name: Deploy BankApp on EC2
+    runs-on: ubuntu-latest
+    needs: push-bankapp-dockerhub
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
@@ -74,9 +89,9 @@ jobs:
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           source: docker-compose-bankapp.yml
-          target: ~/bankapp
+          target: ~/bankapp/
 
-      - name: Pull & Deploy BankApp
+      - name: Set Environment Variables & Deploy BankApp
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.BANKAPP_EC2_HOST }}
@@ -89,16 +104,16 @@ jobs:
             echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
             echo "DB_USER=${{ secrets.DB_USER }}" >> .env
             echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
-            echo "OLLAMA_URL=${{ secrets.OLLAMA_URL }}" >> .env
+            echo "OLLAMA_URL=http://${{ secrets.OLLAMA_PRIVATE_IP }}:5000" >> .env
             docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password ${{ secrets.DOCKERHUB_TOKEN }}
             docker compose -f docker-compose-bankapp.yml pull
             docker compose -f docker-compose-bankapp.yml up -d
 
   # =========================
-  # Deploy Ollama to EC2
+  # Pull Ollama Docker Image
   # =========================
   pull-ollama-image:
-    name: pull/deploy ollama image
+    name: Pull Ollama Docker Image
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
@@ -133,7 +148,15 @@ jobs:
           target: ~/ollama/
           strip_components: 0
 
-      - name: 
+  # =========================
+  # Deploy Ollama on EC2
+  # =========================
+  deploy-ollama:
+    name: Deploy Ollama on EC2
+    runs-on: ubuntu-latest
+    needs: pull-ollama-image
+    steps:
+      - name: Deploy Ollama
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.OLLAMA_EC2_HOST }}
@@ -146,3 +169,25 @@ jobs:
             docker container prune -f || true
             docker compose -f docker-compose-ollama.yml pull
             docker compose -f docker-compose-ollama.yml up -d
+
+  # =========================
+  # Scan Ollama Docker Image
+  # =========================
+  scan-ollama:
+    name: Container Scan - Trivy (Ollama)
+    runs-on: ubuntu-latest
+    needs: deploy-ollama
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Login to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Scan Ollama Docker Image for Vulnerabilities
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/ollama:latest
+          format: table
+          exit-code: '1'
+          severity: CRITICAL,HIGH,MEDIUM
