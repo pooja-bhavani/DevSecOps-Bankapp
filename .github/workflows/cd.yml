@@ -1,6 +1,6 @@
 name: CD - Deploy & DAST
 
-on:
+on: 
   workflow_call:
 
 permissions:
@@ -11,8 +11,8 @@ jobs:
   # =========================
   # Build & Push BankApp Docker Image
   # =========================
-  build-and-package-bankapp:
-    name: Start BankApp
+  build-bankapp: 
+    name: 
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
@@ -24,40 +24,36 @@ jobs:
       - name: Build BankApp Docker Image
         run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest ./
 
+      - name: Push BankApp Docker Image
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
+
   # =========================
   # Scan BankApp Docker Image
   # =========================
   scan-bankapp:
-    name: Scan BankApp Image - Trivy
+    name: Container Scan - Trivy
     runs-on: ubuntu-latest
+    needs: build-bankapp   # Runs after the build job
     steps:
-      - name: Scan BankApp Docker Image
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+
+      - name: Login to DockerHub
+        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+
+      - name: Scan BankApp Docker Image for Vulnerabilities
         uses: aquasecurity/trivy-action@master
         with:
           image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
           format: table
-          exit-code: '1'
-          severity: CRITICAL,HIGH,MEDIUM
+          exit-code: '1'                  # Fails job if vulnerabilities exist
+          severity: CRITICAL,HIGH,MEDIUM  
 
-  # =========================
-  # Push BankApp Docker Image
-  # =========================
-  push-bankapp:
-    name: Push BankApp Docker Image
-    runs-on: ubuntu-latest
-    needs: scan-bankapp
-    steps:
-      - name: Login to DockerHub
-        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-
-      - name: Push BankApp Docker Image
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
   # =========================
   # Deploy BankApp to EC2
   # =========================
-  
-  deploy-bankapp:
-    name: Deploy BankApp on EC2 via SSH
+  push-bankapp-dockerhub:
+    name: Push to Dockerhub
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
@@ -101,8 +97,8 @@ jobs:
   # =========================
   # Deploy Ollama to EC2
   # =========================
-  deploy-ollama:
-    name: Deploy Ollama on EC2 via SSH
+  pull-ollama-image:
+    name: pull/deploy ollama image
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
@@ -137,7 +133,7 @@ jobs:
           target: ~/ollama/
           strip_components: 0
 
-      - name: Pull & Deploy Ollama
+      - name: 
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.OLLAMA_EC2_HOST }}
