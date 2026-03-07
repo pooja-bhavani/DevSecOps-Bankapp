@@ -11,8 +11,8 @@ jobs:
   # =========================
   # Build & Push BankApp Docker Image
   # =========================
-   build-and-push-bankapp:
-    name: build-and-push-bankapp
+  build-and-push-bankapp:
+    name: Build & Push BankApp Image
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
@@ -21,7 +21,7 @@ jobs:
       - name: Login to DockerHub
         run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
-      - name: Build BankApp Image
+      - name: Build BankApp Docker Image
         run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest ./
 
       - name: Push BankApp Docker Image
@@ -31,8 +31,9 @@ jobs:
   # Deploy BankApp to EC2
   # =========================
   deploy-bankapp:
-    name: 
+    name: Deploy BankApp
     runs-on: ubuntu-latest
+    needs: build-and-push-bankapp
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
@@ -54,7 +55,7 @@ jobs:
           source: docker-compose-bankapp.yml
           target: ~/bankapp
 
-      - name: Set .env & Deploy BankApp
+      - name: Pull & Deploy BankApp
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.BANKAPP_EC2_HOST }}
@@ -76,7 +77,7 @@ jobs:
   # Deploy Ollama to EC2
   # =========================
   deploy-ollama:
-    name: 
+    name: Deploy Ollama
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
@@ -111,7 +112,7 @@ jobs:
           target: ~/ollama/
           strip_components: 0
 
-      - name:
+      - name: Pull & Deploy Ollama
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.OLLAMA_EC2_HOST }}
