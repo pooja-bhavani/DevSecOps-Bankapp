@@ -18,6 +18,25 @@ jobs:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
+      - name: Retry SSH until BankApp EC2 is reachable
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.BANKAPP_EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: |
+            echo "BankApp EC2 is reachable!"
+          retry: 5           # retry up to 5 times
+          retry_delay: 15    # wait 15s between retries
+
+      - name: Clean Docker Space (BankApp EC2)
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.BANKAPP_EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: docker system prune -af || true  
+
       - name: Create Deployment Directory on BankApp EC2
         uses: appleboy/ssh-action@master
         with:
