@@ -3,40 +3,54 @@ services:
   mysql:
     image: mysql:8.0
     container_name: bankapp-mysql
+    restart: unless-stopped
+
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
       MYSQL_DATABASE: ${MYSQL_DATABASE}
       MYSQL_USER: ${MYSQL_USER}
       MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+
     ports:
       - "3306:3306"
+
     volumes:
       - mysql-data:/var/lib/mysql
+
     healthcheck:
       test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
       interval: 10s
       timeout: 5s
       retries: 5
       start_period: 30s
+
     networks:
       - bankapp-net
+
 
   bankapp:
     image: poojabhavani08/bankapp:latest
     container_name: bankapp
+    restart: unless-stopped
+
     ports:
       - "8080:8080"
+
     environment:
       DB_HOST: mysql
       DB_PORT: 3306
       DB_NAME: ${MYSQL_DATABASE}
       DB_USER: ${MYSQL_USER}
       DB_PASSWORD: ${MYSQL_PASSWORD}
-      OLLAMA_URL: ${OLLAMA_URL}   # points to Ollama EC2
+      OLLAMA_URL: ${OLLAMA_URL}
+
     depends_on:
-      - mysql
+      mysql:
+        condition: service_healthy
+
     networks:
       - bankapp-net
+
 
 volumes:
   mysql-data:
