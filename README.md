@@ -123,85 +123,19 @@ The CI/CD pipeline enforces **9 sequential security gates** before any code reac
 
 ---
 
-### Phase 2: Database Initialization
-
-1. **Schema Provisioning**:
-   - Access the RDS instance from the Application EC2:
-
-     ```bash
-     mysql -h <RDS-ENDPOINT> -u <USERNAME> -p
-     ```
-
-   - Initialize the application database:
-
-     ```sql
-     CREATE DATABASE bankappdb;
-     EXIT;
-     ```
-
----
-
-### Phase 3: Security and Identity Configuration
-
-The deployment pipeline utilizes OpenID Connect (OIDC) for secure, keyless authentication between GitHub and AWS.
-
-1. **IAM Identity Provider**:
-   - Provider URL: `https://token.actions.githubusercontent.com`
-   - Audience: `sts.amazonaws.com`
-
-      ![identity-provider](screenshots/10.png)
-
-2. **Deployment Role**:
-   - click on created `Identity provider`
-   - Asign & Create a role named `GitHubActionsRole`.
-   - Enter following details:
-      - `Identity provider`: Select created one.
-      - `Audience`: Select created one.
-      - `GitHub organization`: Your GitHub Username or Orgs Name where this repo is located.
-      - `GitHub repository`: Write the Repository name of this project. `(e.g, DevSecOps-Bankapp)`
-      - `GitHub branch`: branch to use for this project `(e.g, devsecops)`
-      - Click on `Next`
-
-      ![role](screenshots/11.png)
-
-   - Assign `AmazonEC2ContainerRegistryPowerUser` permissions.
-
-      ![iam permission](screenshots/12.png)
-
-   - Click on `Next`, Enter name of role and click on `Create role`.
-
-      ![iam role](screenshots/13.png)
-
----
-
-### Phase 4: Secrets and Pipeline Configuration
-
-#### 1. AWS Secrets Manager
-Create a secret named `bankapp/prod-secrets` in `Other type of secret` with the following key-value pairs:
-
-| Secret Key | Description |
-| :--- | :--- |
-| `DB_HOST` | The RDS instance endpoint address |
-| `DB_PORT` | The database port (standard is `3306`) |
-| `DB_NAME` | The application database name (`bankappdb`) |
-| `DB_USER` | The administrative username for the RDS instance |
-| `DB_PASSWORD` | The administrative password for the RDS instance |
-| `OLLAMA_URL` | The private URL for the AI tier (`http://<PRIVATE-IP>:11434`) |
-
-![aws-ssm](screenshots/14.png)
-
 #### 2. GitHub Repository Secrets
 Configure the following Action Secrets within your GitHub repository settings:
 
 | Secret Name | Description |
 | :--- | :--- |
-| `AWS_ROLE_ARN` | The ARN of the `GitHubActionsRole` |
 | `AWS_REGION` | The AWS region where resources are deployed |
 | `AWS_ACCOUNT_ID` | Your 12-digit AWS account number |
-| `ECR_REPOSITORY` | The name of the ECR repository (`devsecops-bankapp`) |
-| `EC2_HOST` | The public IP address of the Application EC2 |
+| `BANKAPP_EC2_HOST` | The public IP address of the Application EC2 |
+| `Ollama_URL` | The private IP address of the Ollama EC2 |
 | `EC2_USER` | The SSH username (default is `ubuntu`) |
 | `EC2_SSH_KEY` | The content of your private SSH key (`.pem` file) |
+| `DOCKERHUB_USERNAME` | The username of your DockerHub |
+| `DOCKERHUB_TOKEN` | The token of your DockerHub to Push/pull Docker images |
 | `NVD_API_KEY` | Free API key from [nvd.nist.gov](https://nvd.nist.gov/developers/request-an-api-key) for OWASP SCA scans |
 
 > **Note**: The `NVD_API_KEY` raises the NVD API rate limit from ~5 requests/30s to 50 requests/30s, reducing the OWASP Dependency Check scan time from 30+ minutes to under 8 minutes. Without it the SCA job will time out.
