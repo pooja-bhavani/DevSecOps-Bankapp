@@ -12,7 +12,7 @@ jobs:
   # Deploy BankApp to EC2
   # =========================
   deploy:
-    name: Push to Dockerhub
+    name: Deploy to EC2 via SSH
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
@@ -56,8 +56,8 @@ jobs:
   # =========================
   # Deploy Ollama to EC2
   # =========================
-  pull-ollama-image:
-    name: pull/deploy ollama image
+  pull-deploy-ollama-image:
+    name: deploy ollama to EC2 via SSH
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
