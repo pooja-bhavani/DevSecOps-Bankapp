@@ -93,9 +93,9 @@ The CI/CD pipeline enforces **9 sequential security gates** before any code reac
 
 - Run on both servers
   
-      bash
+      ```bash
       #!/bin/bash
-      ```
+
       sudo apt update 
       sudo apt install -y docker.io docker-compose-v2 jq mysql-client
       sudo usermod -aG docker ubuntu
