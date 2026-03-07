@@ -135,7 +135,7 @@ Configure the following Action Secrets within your GitHub repository settings:
 | `EC2_USER` | The SSH username (default is `ubuntu`) |
 | `EC2_SSH_KEY` | The content of your private SSH key (`.pem` file) |
 | `DOCKERHUB_USERNAME` | The username of your DockerHub |
-| `DOCKERHUB_TOKEN` | The token of your DockerHub to Push/pull Docker images |
+| `DOCKERHUB_TOKEN` | The token of DockerHub to Push/pull Docker images |
 | `NVD_API_KEY` | Free API key from [nvd.nist.gov](https://nvd.nist.gov/developers/request-an-api-key) for OWASP SCA scans |
 
 > **Note**: The `NVD_API_KEY` raises the NVD API rate limit from ~5 requests/30s to 50 requests/30s, reducing the OWASP Dependency Check scan time from 30+ minutes to under 8 minutes. Without it the SCA job will time out.
