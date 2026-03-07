@@ -4,7 +4,7 @@ on:
   push: 
     branches: [ main, devsecops ] 
     paths-ignore: 
-      - '**.md'
+      - '**.md' 
       - '.gitignore'
       - 'LICENSE'
       - 'screenshots/**'
