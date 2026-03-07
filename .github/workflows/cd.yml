@@ -13,7 +13,7 @@ jobs:
   # =========================
   
   build-and-push-bankapp:
-    name: BankApp Image
+    name: Push to DockerHub
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
