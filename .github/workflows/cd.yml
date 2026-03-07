@@ -1,111 +1,109 @@
-name: CD - Deploy BankApp & Ollama
+name: CD - Deploy & DAST
 
-on:
+on: 
   workflow_call:
 
 permissions:
   contents: read
 
-jobs:
+jobs: 
 
-# =====================================
-# 1️⃣ Deploy BankApp to BankApp EC2
-# =====================================
-  deploy-bankapp:
-    name: Deploy BankApp to EC2 via SSH
+  # =========================
+  # Deploy BankApp to EC2
+  # =========================
+  push-bankapp-dockerhub:
+    name: deploy bankapp to EC2 via SSH
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout Repository
+      - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Prepare BankApp Server
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Create Deployment Directory on BankApp EC2
+        uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.BANKAPP_EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            mkdir -p ~/bankapp
-            docker system prune -af || true
+          script: mkdir -p ~/bankapp
 
-      - name: Copy BankApp Compose File
-        uses: appleboy/scp-action@v0.1.7
+      - name: Copy docker-compose to BankApp EC2
+        uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.BANKAPP_EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           source: docker-compose-bankapp.yml
-          target: ~/bankapp/
+          target: ~/bankapp
 
-      - name: Deploy BankApp
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Pull & Deploy BankApp
+        uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.BANKAPP_EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd ~/bankapp
-
-            echo "MYSQL_ROOT_PASSWORD=${{ secrets.MYSQL_ROOT_PASSWORD }}" > .env
-            echo "MYSQL_DATABASE=${{ secrets.MYSQL_DATABASE }}" >> .env
-            echo "MYSQL_USER=${{ secrets.MYSQL_USER }}" >> .env
-            echo "MYSQL_PASSWORD=${{ secrets.MYSQL_PASSWORD }}" >> .env
-
-            echo "DB_HOST=mysql" >> .env
-            echo "DB_PORT=3306" >> .env
+            echo "DB_HOST=${{ secrets.DB_HOST }}" > .env
+            echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
             echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
             echo "DB_USER=${{ secrets.DB_USER }}" >> .env
             echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+            echo "OLLAMA_URL=${{ secrets.OLLAMA_URL }}" >> .env
+            docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password ${{ secrets.DOCKERHUB_TOKEN }}
+            docker compose -f docker-compose-bankapp.yml pull
+            docker compose -f docker-compose-bankapp.yml up -d
 
-            echo "OLLAMA_URL=http://${{ secrets.OLLAMA_EC2_HOST }}:11434" >> .env
-            echo "IMAGE_TAG=latest" >> .env
-
-            docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }}
-
-            docker compose --env-file .env -f docker-compose-bankapp.yml pull
-            docker compose --env-file .env -f docker-compose-bankapp.yml up -d
-
-
-# =====================================
-# 2️⃣ Deploy Ollama to Ollama EC2
-# =====================================
-  deploy-ollama:
-    name: Deploy Ollama to EC2 via SSH
+  # =========================
+  # Deploy Ollama to EC2
+  # =========================
+  pull-ollama-image:
+    name: pull/deploy ollama to EC2 via SSH
     runs-on: ubuntu-latest
-    needs: deploy-bankapp
-
     steps:
-      - name: Checkout Repository
+      - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Prepare Ollama Server
-        uses: appleboy/ssh-action@v1.0.3
+      - name: Cleanup Disk Space on Ollama EC2
+        uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.OLLAMA_EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
-            mkdir -p ~/ollama
-            docker system prune -af || true
+            docker container prune --force || true
+            docker image prune -a --force || true
+            docker volume prune --force || true
 
-      - name: Copy Ollama Compose File
-        uses: appleboy/scp-action@v0.1.7
+      - name: Create Deployment Directory on Ollama EC2
+        uses: appleboy/ssh-action@master
+        with:
+          host: ${{ secrets.OLLAMA_EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          script: mkdir -p ~/ollama
+
+      - name: Copy docker-compose to Ollama EC2
+        uses: appleboy/scp-action@master
         with:
           host: ${{ secrets.OLLAMA_EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           source: docker-compose-ollama.yml
           target: ~/ollama/
+          strip_components: 0
 
-      - name: Deploy Ollama
-        uses: appleboy/ssh-action@v1.0.3
+      - name: 
+        uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.OLLAMA_EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
           script: |
             cd ~/ollama
-
+            docker compose -f docker-compose-ollama.yml down --remove-orphans || true
+            docker rm -f bankapp-ollama || true
+            docker container prune -f || true
             docker compose -f docker-compose-ollama.yml pull
             docker compose -f docker-compose-ollama.yml up -d
+
+
