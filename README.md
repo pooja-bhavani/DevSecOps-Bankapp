@@ -173,7 +173,7 @@ Configure the following Action Secrets within your GitHub repository settings:
 - Value: Paste the copied API key.
 - Click **Add Secret**.
 
-![github-secret](screenshots/15.png)
+<img width="1613" height="1108" alt="image" src="https://github.com/user-attachments/assets/11a79ed9-4fd8-4221-a385-6febe58d3111" />
 
 ---
 
@@ -189,11 +189,11 @@ The DevSecOps lifecycle is orchestrated through the [DevSecOps Main Pipeline](.g
 | 4 | `sca` | OWASP Dependency Check | **Strict**: Fails if any dependency has CVSS > 7.0. |
 | 5 | `build` | Maven | Standard build and test stage. |
 | 6 | `image_scan` | Trivy | **Strict**: Scans Docker image layers. Fails on any High/Critical CVE. |
-| 7 | `push_to_ecr` | Amazon ECR | Pushes the verified image to AWS ECR using OIDC. |
-| 8 | `deploy` | SSH / Docker Compose | Fetches secrets from AWS Secrets Manager and recreates the container. |
+| 7 | `push_to_DockerHub` | DockerHub | Pushes the verified image to DockerHub. |
+| 8 | `deploy` | SSH / Docker Compose | Fetches secrets from .env and recreates the container. |
 | 9 | `dast` | OWASP ZAP | **Audit Mode**: Comprehensive scan that reports findings as artifacts, but does not block the pipeline. |
 
-All scan reports (OWASP, Trivy, ZAP) are uploaded as downloadable **Artifacts** in each GitHub Actions run, YOu can look into the **Artifacts**.
+All scan reports (OWASP, Trivy, ZAP) are uploaded as downloadable **Artifacts** in each GitHub Actions run, You can look into the **Artifacts**.
 
 - CI/CD
 
@@ -215,27 +215,11 @@ All scan reports (OWASP, Trivy, ZAP) are uploaded as downloadable **Artifacts** 
 
   ![app](screenshots/20.png)
 
-- **Database Connectivity**: 
-
-  ```bash
-  mysql -h <RDS-ENDPOINT> -u <USER> -p bankappdb -e "SELECT * FROM accounts;"
-  ```
-
-  ![mysql-result](screenshots/17.png)
-
-- **Network Validation**: 
-
-  ```bash
-  nc -zv <OLLAMA-PRIVATE-IP> 11434
-  ```
-
-  ![ollama-success](screenshots/18.png)
-
 ---
 
 <div align="center">
 
-Happy Learning
+Happy Learning!
 
 **TrainWithShubham**  
 
