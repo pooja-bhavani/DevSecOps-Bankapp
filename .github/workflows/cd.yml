@@ -9,25 +9,6 @@ permissions:
 jobs: 
 
   # =========================
-  # Build & Push BankApp Docker Image
-  # =========================
-  build: 
-    name: Build bankapp
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v4
-
-      - name: Login to DockerHub
-        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-
-      - name: Build BankApp Docker Image
-        run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest ./
-
-      - name: Push BankApp Docker Image
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
-
-  # =========================
   # Deploy BankApp to EC2
   # =========================
   deploy:
@@ -124,3 +105,27 @@ jobs:
             docker container prune -f || true
             docker compose -f docker-compose-ollama.yml pull
             docker compose -f docker-compose-ollama.yml up -d
+
+  # ============================================================
+  # GATE 9: DAST - Dynamic Application Security Testing
+  # ============================================================
+  dast:
+    name: DAST - OWASP ZAP Baseline Scan
+    runs-on: ubuntu-latest
+    needs: deploy
+    steps:
+      - name: Run OWASP ZAP Baseline Scan
+        uses: zaproxy/action-baseline@v0.15.0
+        continue-on-error: true  # Workaround for ZAP's internal artifact upload bug
+        with:
+          target: 'http://${{ secrets.EC2_HOST }}:8080'
+          artifact_name: zapreport
+          fail_action: false
+          allow_issue_writing: false
+
+      - name: Upload ZAP Report
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: zap-dast-report
+          path: report_html.html      
