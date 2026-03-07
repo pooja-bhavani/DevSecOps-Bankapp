@@ -30,7 +30,7 @@ jobs:
   # =========================
   # Deploy BankApp to EC2
   # =========================
-  push-deploy-bankapp:
+  push-bankapp:
     name: 
     runs-on: ubuntu-latest
     steps:
@@ -75,7 +75,7 @@ jobs:
   # =========================
   # Deploy Ollama to EC2
   # =========================
-  deploy-ollama:
+  pull-ollama:
     name: 
     runs-on: ubuntu-latest
     steps:
