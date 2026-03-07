@@ -12,7 +12,7 @@ jobs:
   # Build & Push BankApp Docker Image
   # =========================
   
-  build-and-push-bankapp:
+  build-and-package-bankapp:
     name: Push to DockerHub
     runs-on: ubuntu-latest
     steps:
