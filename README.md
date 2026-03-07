@@ -103,11 +103,6 @@ The CI/CD pipeline enforces **9 sequential security gates** before any code reac
 
 3. **AI Engine Tier (Ollama)**:
    - Deploy a dedicated Ubuntu EC2 instance with bellow `user data`.
-   - Open Inbound Port `11434` from the Application EC2 Security Group.
-
-      > Better to give `name` to Security Group created.
-    
-      ![ollama-sg](screenshots/8.png)
 
    - Automate initialization using the [ollama-setup.sh](scripts/ollama-setup.sh) script via EC2 User Data.
     
@@ -120,6 +115,12 @@ The CI/CD pipeline enforces **9 sequential security gates** before any code reac
      ```
 
       ![ollama-list](screenshots/21.png)
+
+   - Open Inbound Port `11434` from the Application EC2 Security Group.
+
+      > Better to give `name` to Security Group created.
+    
+      ![ollama-sg](screenshots/8.png)
 
 ---
 
