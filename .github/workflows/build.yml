@@ -30,7 +30,7 @@ jobs:
   # =========================
   # Deploy BankApp to EC2
   # =========================
-  push-bankapp:
+  push-bankapp-dockerhub:
     name: 
     runs-on: ubuntu-latest
     steps:
