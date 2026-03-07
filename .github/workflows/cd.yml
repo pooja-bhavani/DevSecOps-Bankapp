@@ -12,7 +12,7 @@ jobs:
   # Build & Push BankApp Docker Image
   # =========================
   build-bankapp: 
-    name: 
+    name: bank-app
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
@@ -23,9 +23,6 @@ jobs:
 
       - name: Build BankApp Docker Image
         run: docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest ./
-
-      - name: Push BankApp Docker Image
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
 
   # =========================
   # Scan BankApp Docker Image
@@ -48,6 +45,9 @@ jobs:
           format: table
           exit-code: '1'                  # Fails job if vulnerabilities exist
           severity: CRITICAL,HIGH,MEDIUM  
+
+      - name: Push BankApp Docker Image
+        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
 
   # =========================
   # Deploy BankApp to EC2
