@@ -12,7 +12,7 @@ jobs:
   # Build & Push BankApp Docker Image
   # =========================
   build-bankapp: 
-    name: 
+    name: Build & Package
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
@@ -48,51 +48,6 @@ jobs:
           format: table
           exit-code: '1'                  # Fails job if vulnerabilities exist
           severity: CRITICAL,HIGH,MEDIUM  
-
-  # =========================
-  # Deploy BankApp to EC2
-  # =========================
-  push-bankapp-dockerhub:
-    name: Push to Dockerhub
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout Repo
-        uses: actions/checkout@v4
-
-      - name: Create Deployment Directory on BankApp EC2
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.BANKAPP_EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: mkdir -p ~/bankapp
-
-      - name: Copy docker-compose to BankApp EC2
-        uses: appleboy/scp-action@master
-        with:
-          host: ${{ secrets.BANKAPP_EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          source: docker-compose-bankapp.yml
-          target: ~/bankapp
-
-      - name: Pull & Deploy BankApp
-        uses: appleboy/ssh-action@master
-        with:
-          host: ${{ secrets.BANKAPP_EC2_HOST }}
-          username: ${{ secrets.EC2_USER }}
-          key: ${{ secrets.EC2_SSH_KEY }}
-          script: |
-            cd ~/bankapp
-            echo "DB_HOST=${{ secrets.DB_HOST }}" > .env
-            echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
-            echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
-            echo "DB_USER=${{ secrets.DB_USER }}" >> .env
-            echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
-            echo "OLLAMA_URL=${{ secrets.OLLAMA_URL }}" >> .env
-            docker login --username ${{ secrets.DOCKERHUB_USERNAME }} --password ${{ secrets.DOCKERHUB_TOKEN }}
-            docker compose -f docker-compose-bankapp.yml pull
-            docker compose -f docker-compose-bankapp.yml up -d
 
   # =========================
   # Deploy Ollama to EC2
