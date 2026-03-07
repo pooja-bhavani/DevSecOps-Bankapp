@@ -1,6 +1,6 @@
 name: CD - Deploy & DAST
 
-on:
+on: 
   workflow_call:
 
 permissions:
