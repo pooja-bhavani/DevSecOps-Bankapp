@@ -4,14 +4,14 @@ WORKDIR /app
 COPY . .
 RUN chmod +x mvnw && ./mvnw clean package -DskipTests -B
 
-# Run stage - alpine has significantly fewer CVEs than ubuntu/jammy
+# Run stage
 FROM eclipse-temurin:21-jre-alpine
 WORKDIR /app
 
 # Pull latest security patches for OS libraries
-RUN apk update && apk upgrade --no-cache curl
+RUN apk update && apk upgrade --no-cache && rm -rf /var/cache/apk/*
 
-# Create a non-root user for security (Alpine uses addgroup/adduser instead of groupadd/useradd)
+# Create non-root user
 RUN addgroup -S devsecops && adduser -S -G devsecops devsecops
 USER devsecops
 
