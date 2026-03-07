@@ -3,7 +3,7 @@ name: DevSecOps Main Pipeline
 on:
   push: 
     branches: [ main, devsecops ] 
-    paths-ignore:
+    paths-ignore: 
       - '**.md'
       - '.gitignore'
       - 'LICENSE'
