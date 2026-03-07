@@ -63,7 +63,7 @@ jobs:
 
             docker compose -f docker-compose-bankapp.yml down || true
             docker compose -f docker-compose-bankapp.yml pull
-            docker compose -f docker-compose-bankapp.yml up -d
+            docker compose -f docker-compose-bankapp.yml up -d 
 
   # =========================
   # Deploy Ollama to EC2
