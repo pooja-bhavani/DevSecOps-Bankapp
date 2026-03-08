@@ -46,7 +46,8 @@ jobs:
         run: |
           docker build \
           -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:${{ env.IMAGE_TAG }} \
-          -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest \ .    
+          -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest \ 
+          .
 
   # ============================================================
   # GATE 6: CONTAINER IMAGE SCAN - Trivy
