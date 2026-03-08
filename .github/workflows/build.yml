@@ -18,44 +18,34 @@ jobs:
 
     steps:
 
-      # --------------------------------
+      # ---------------------------
       # Checkout Repository
-      # --------------------------------
+      # ---------------------------
       - name: Checkout Repository
         uses: actions/checkout@v4
 
 
-      # --------------------------------
-      # Set Image Tag
-      # --------------------------------
-      - name: Set Image Tag
-        run: |
-          IMAGE_TAG=${GITHUB_SHA::7}
-          echo "IMAGE_TAG=$IMAGE_TAG" >> $GITHUB_ENV
-
-
-      # --------------------------------
+      # ---------------------------
       # Login to DockerHub
-      # --------------------------------
+      # ---------------------------
       - name: Login to DockerHub
         run: |
           echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login \
-            --username "${{ secrets.DOCKERHUB_USERNAME }}" \
-            --password-stdin
+          --username "${{ secrets.DOCKERHUB_USERNAME }}" \
+          --password-stdin
 
 
-      # --------------------------------
+      # ---------------------------
       # Build Docker Image
-      # --------------------------------
+      # ---------------------------
       - name: Build Docker Image
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:$IMAGE_TAG .
-          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:$IMAGE_TAG ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest .
 
 
-      # --------------------------------
+      # ---------------------------
       # Cache Trivy DB
-      # --------------------------------
+      # ---------------------------
       - name: Cache Trivy DB
         uses: actions/cache@v4
         with:
@@ -65,24 +55,24 @@ jobs:
             trivy-db-${{ runner.os }}-
 
 
-      # --------------------------------
+      # ---------------------------
       # Run Trivy Scan
-      # --------------------------------
+      # ---------------------------
       - name: Run Trivy Container Scan
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:${{ env.IMAGE_TAG }}
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
           format: table
           exit-code: '1'
           ignore-unfixed: true
-          vuln-type: os,library
-          severity: CRITICAL,HIGH
+          vuln-type: 'os,library'
+          severity: 'CRITICAL,HIGH'
           output: trivy-report.txt
 
 
-      # --------------------------------
+      # ---------------------------
       # Upload Scan Report
-      # --------------------------------
+      # ---------------------------
       - name: Upload Trivy Report
         uses: actions/upload-artifact@v4
         if: always()
@@ -91,10 +81,9 @@ jobs:
           path: trivy-report.txt
 
 
-      # --------------------------------
-      # Push Docker Images
-      # --------------------------------
-      - name: Push Docker Images
+      # ---------------------------
+      # Push Image (only if scan passes)
+      # ---------------------------
+      - name: Push Docker Image
         run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:$IMAGE_TAG
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
