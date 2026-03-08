@@ -93,5 +93,5 @@ jobs:
       # ---------------------------
       - name: Push Docker Image
         run: |
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:$IMAGE_TAG
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:${{ env.IMAGE_TAG }}
           docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
