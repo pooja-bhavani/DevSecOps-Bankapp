@@ -1,40 +1,180 @@
-name: CD - Deploy to EC2
+name: CD - Deploy & DAST
 
 on:
-workflow_run:
-workflows:
-- Build - Container Build, Scan & Push
-types:
-- completed
+  workflow_call:
+
+permissions:
+  contents: read
 
 jobs:
-deploy:
-runs-on: ubuntu-latest
 
-```
-steps:
+# =====================================================
+# Deploy BankApp to EC2
+# =====================================================
+  deploy-bankapp:
+    name: Deploy BankApp to EC2
+    runs-on: ubuntu-latest
 
-  - name: Deploy Application to EC2
+    steps:
+
+  # ---------------------------
+  # Checkout Repository
+  # ---------------------------
+    - name: Checkout Repo
+      uses: actions/checkout@v4
+
+  # ---------------------------
+  # Set Image Tag
+  # ---------------------------
+    - name: Set Image Tag
+      run: echo "IMAGE_TAG=${GITHUB_SHA::7}" >> $GITHUB_ENV
+
+  # ---------------------------
+  # Retry SSH
+  # ---------------------------
+    - name: Wait for EC2 to be reachable
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.BANKAPP_EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: echo "EC2 reachable"
+        retry: 5
+        retry_delay: 15
+
+  # ---------------------------
+  # Cleanup Docker
+  # ---------------------------
+    - name: Clean Docker Space
+      uses: appleboy/ssh-action@v1.0.3
+      with:
+        host: ${{ secrets.BANKAPP_EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: docker system prune -af || true
+
+  # ---------------------------
+  # Create Deployment Folder
+  # ---------------------------
+    - name: Create Deployment Directory
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.BANKAPP_EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: mkdir -p ~/bankapp
+
+  # ---------------------------
+  # Copy docker-compose
+  # ---------------------------
+    - name: Copy docker-compose
+      uses: appleboy/scp-action@master
+      with:
+        host: ${{ secrets.BANKAPP_EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        source: docker-compose-bankapp.yml
+        target: ~/bankapp
+
+  # ---------------------------
+  # Deploy Application
+  # ---------------------------
+    - name: Deploy BankApp
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.BANKAPP_EC2_HOST }}
+        username: ${{ secrets.EC2_USER }}
+        key: ${{ secrets.EC2_SSH_KEY }}
+        script: |
+          cd ~/bankapp
+
+          echo "IMAGE_TAG=${{ env.IMAGE_TAG }}" > .env
+          echo "DB_HOST=${{ secrets.DB_HOST }}" >> .env
+          echo "DB_PORT=${{ secrets.DB_PORT }}" >> .env
+          echo "DB_NAME=${{ secrets.DB_NAME }}" >> .env
+          echo "DB_USER=${{ secrets.DB_USER }}" >> .env
+          echo "DB_PASSWORD=${{ secrets.DB_PASSWORD }}" >> .env
+          echo "OLLAMA_URL=${{ secrets.OLLAMA_URL }}" >> .env
+
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login \
+          --username "${{ secrets.DOCKERHUB_USERNAME }}" \
+          --password-stdin
+
+          docker compose -f docker-compose-bankapp.yml pull
+          docker compose -f docker-compose-bankapp.yml up -d
+
+# =====================================================
+# Deploy Ollama to EC2
+# =====================================================
+deploy-ollama:
+ name: Deploy Ollama
+ runs-on: ubuntu-latest
+ steps:
+
+  - name: Checkout Repo
+    uses: actions/checkout@v4
+
+  - name: Cleanup Disk Space
     uses: appleboy/ssh-action@master
     with:
-      host: ${{ secrets.EC2_HOST }}
-      username: ubuntu
-      key: ${{ secrets.EC2_KEY }}
+      host: ${{ secrets.OLLAMA_EC2_HOST }}
+      username: ${{ secrets.EC2_USER }}
+      key: ${{ secrets.EC2_SSH_KEY }}
       script: |
+        docker container prune -f || true
+        docker image prune -a -f || true
+        docker volume prune -f || true
 
-        cd bankapp
+  - name: Create Deployment Directory
+    uses: appleboy/ssh-action@master
+    with:
+      host: ${{ secrets.OLLAMA_EC2_HOST }}
+      username: ${{ secrets.EC2_USER }}
+      key: ${{ secrets.EC2_SSH_KEY }}
+      script: mkdir -p ~/ollama
 
-        echo "Pull latest Docker image"
-        docker pull ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
+  - name: Copy docker-compose
+    uses: appleboy/scp-action@master
+    with:
+      host: ${{ secrets.OLLAMA_EC2_HOST }}
+      username: ${{ secrets.EC2_USER }}
+      key: ${{ secrets.EC2_SSH_KEY }}
+      source: docker-compose-ollama.yml
+      target: ~/ollama/
 
-        echo "Stopping old containers"
-        docker compose down --remove-orphans
-
-        echo "Cleaning unused networks"
-        docker network prune -f
-
-        echo "Starting containers"
+  - name: Deploy Ollama
+    uses: appleboy/ssh-action@master
+    with:
+      host: ${{ secrets.OLLAMA_EC2_HOST }}
+      username: ${{ secrets.EC2_USER }}
+      key: ${{ secrets.EC2_SSH_KEY }}
+      script: |
+        cd ~/ollama
+        docker compose down --remove-orphans || true
+        docker container prune -f || true
+        docker compose pull
         docker compose up -d
 
-        echo "Deployment completed"
-```
+# =====================================================
+# DAST - OWASP ZAP
+# =====================================================
+ dast:
+  name: DAST - OWASP ZAP Baseline Scan
+  runs-on: ubuntu-latest
+  needs: deploy-bankapp
+  steps:
+  - name: Run OWASP ZAP Baseline Scan
+    uses: zaproxy/action-baseline@v0.15.0
+    continue-on-error: true
+    with:
+      target: "http://${{ secrets.BANKAPP_EC2_HOST }}:8080"
+      artifact_name: zapreport
+      fail_action: false
+      allow_issue_writing: false
+
+  - name: Upload ZAP Report
+    uses: actions/upload-artifact@v4
+    if: always()
+    with:
+      name: zap-dast-report
+      path: report_html.html
