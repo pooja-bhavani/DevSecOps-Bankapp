@@ -1,42 +1,64 @@
 services:
+
   mysql:
     image: mysql:8.0
     container_name: bankapp-mysql
-    restart: always
+    restart: unless-stopped
+
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword
-      MYSQL_DATABASE: bankapp_db
-      MYSQL_USER: bankuser
-      MYSQL_PASSWORD: bankpassword
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_USER: ${MYSQL_USER}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD}
+
     ports:
       - "3306:3306"
-    volumes:
-      - mysql_data:/var/lib/mysql
 
-  backend:
-    image: ${DOCKERHUB_USERNAME}/bankapp:${IMAGE_TAG}  # Replace with your Docker Hub repo
-    container_name: bankapp-backend
-    restart: always
-    depends_on:
-      - mysql
+    volumes:
+      - mysql-data:/var/lib/mysql
+
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+    networks:
+      - bankapp-net
+
+
+  bankapp:
+    image: poojabhavani08/bankapp:latest
+    container_name: bankapp
+    restart: unless-stopped
+
+    env_file:
+      - .env
+  
+
+    ports:
+      - "8080:8080"
+
     environment:
       DB_HOST: mysql
-      DB_USER: bankuser
-      DB_PASSWORD: bankpassword
-      DB_NAME: bankapp_db
-    ports:
-      - "8000:8000"
+      DB_PORT: 3306
+      DB_NAME: ${MYSQL_DATABASE}
+      DB_USER: ${MYSQL_USER}
+      DB_PASSWORD: ${MYSQL_PASSWORD}
+      OLLAMA_URL: ${OLLAMA_URL}
 
-  frontend:
-    image: poojabhavani08/bankapp-frontend:latest  # Replace with your Docker Hub repo
-    container_name: bankapp-frontend
-    restart: always
     depends_on:
-      - backend
-    ports:
-      - "3000:3000"
-    environment:
-      REACT_APP_BACKEND_URL: http://backend:8000
+      mysql:
+        condition: service_healthy
+
+    networks:
+      - bankapp-net
+
 
 volumes:
-  mysql_data:
+  mysql-data:
+
+networks:
+  bankapp-net:
+    driver: bridge
