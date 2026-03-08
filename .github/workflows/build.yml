@@ -5,46 +5,65 @@ on:
     branches:
       - main
   pull_request:
-  workflow_call: 
+  workflow_call:
 
 permissions:
   contents: read
 
-jobs: 
+jobs:
 
-  # =========================
-  # Build & Package BankApp Docker Image
-  # =========================
-  build-bankapp: 
-    name: Build & Package
+# =========================
+# Build Docker Image
+# =========================
+  build-bankapp:
+    name: Build Image
     runs-on: ubuntu-latest
     outputs:
-      image-name: ${{ steps.set-image-name.outputs.image }}
+      image_tag: ${{ steps.settag.outputs.tag }}
+
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
 
-      - name: Login to DockerHub
-        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
-
-      - name: Build BankApp Docker Image
+      - name: Set Image Tag
+        id: settag
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest ./
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest   # push immediately so next job can pull
+          TAG=${GITHUB_SHA::7}
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "IMAGE_TAG=$TAG" >> $GITHUB_ENV
 
-  # ============================================================
-  # GATE 6: CONTAINER IMAGE SCAN - Trivy
-  # ============================================================
+      - name: Build Docker Image
+        run: |
+          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:$IMAGE_TAG .
+          docker tag ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:$IMAGE_TAG ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
+
+      - name: Save Docker Image
+        run: |
+          docker save ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:$IMAGE_TAG -o bankapp.tar
+
+      - name: Upload Image Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bankapp-image
+          path: bankapp.tar
+
+
+# ============================================================
+# GATE 6: CONTAINER IMAGE SCAN - Trivy
+# ============================================================
   image_scan:
     name: Container Image Scan
     runs-on: ubuntu-latest
     needs: build-bankapp
-    steps:
-      - name: Login to DockerHub
-        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
 
-      - name: Pull Docker Image
-        run: docker pull ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
+    steps:
+      - name: Download Image Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: bankapp-image
+
+      - name: Load Docker Image
+        run: docker load -i bankapp.tar
 
       - name: Cache Trivy DB
         uses: actions/cache@v4
@@ -57,12 +76,12 @@ jobs:
       - name: Run Trivy Image Scan
         uses: aquasecurity/trivy-action@master
         with:
-          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
-          format: 'table'
-          exit-code: '1'         # Fail if Critical/High vulnerabilities are found
+          image-ref: ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:${{ needs.build-bankapp.outputs.image_tag }}
+          format: table
+          exit-code: 1
           ignore-unfixed: true
-          vuln-type: 'os,library'
-          severity: 'CRITICAL,HIGH'
+          vuln-type: os,library
+          severity: CRITICAL,HIGH
           output: trivy-report.txt
 
       - name: Upload Trivy Report
@@ -72,19 +91,31 @@ jobs:
           name: trivy-scan-report
           path: trivy-report.txt
 
-  # =========================
-  # Push BankApp Docker Image (final)
-  # =========================
+
+# =========================
+# Push Docker Image
+# =========================
   push-bankapp:
-    name: Push to DockerHub
+    name: Push Image to DockerHub
     runs-on: ubuntu-latest
-    needs: image_scan  # Only run if scan passes
+    needs: image_scan
+
     steps:
+      - name: Download Image Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: bankapp-image
+
+      - name: Load Docker Image
+        run: docker load -i bankapp.tar
+
       - name: Login to DockerHub
-        run: echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login --username "${{ secrets.DOCKERHUB_USERNAME }}" --password-stdin
+        run: |
+          echo "${{ secrets.DOCKERHUB_TOKEN }}" | docker login \
+          --username "${{ secrets.DOCKERHUB_USERNAME }}" \
+          --password-stdin
 
-      - name: Pull Docker Image (scan job ran on a different runner)
-        run: docker pull ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
-
-      - name: Push BankApp Docker Image
-        run: docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
+      - name: Push Images
+        run: |
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:${{ needs.build-bankapp.outputs.image_tag }}
+          docker push ${{ secrets.DOCKERHUB_USERNAME }}/bankapp:latest
