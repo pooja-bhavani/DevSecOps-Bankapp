@@ -1,6 +1,5 @@
 <div align="center"> 
 
-[![.github/workflows/devsecops-main.yml](https://github.com/pooja-bhavani/DevSecOps-Bankapp/actions/workflows/devsecops-main.yml/badge.svg)](https://github.com/pooja-bhavani/DevSecOps-Bankapp/actions/workflows/devsecops-main.yml)
 # DevSecOps Banking Application
 
 A high-performance, containerized financial platform built with Spring Boot 3, Java 21, and integrated Contextual AI. This project implements a secure "DevSecOps Pipeline" using GitHub Actions, OIDC authentication.
